@@ -137,6 +137,46 @@ def _print_summary(results):
 
 
 # ── Combined 3-panel summary plot ────────────────────────────────────────────
+_WIN_COLORS = {
+    "baseline":  "#cfe0f3",
+    "task_odd":  "#d8ecd8",
+    "task_even": "#fbe3cc",
+    "rest":      "#e3e3e3",
+}
+
+
+def _shade_timeline(ax, windows, x_scale=1.0, label_y=-0.13):
+    """Add coloured task-window spans and labels to an axes.
+
+    x_scale: multiply window times by this (1.0 → seconds, 1/60 → minutes).
+    label_y: axes-fraction y position for the task labels below the x-axis.
+    """
+    import re
+    for w in windows:
+        x0, x1 = w["t_start"] * x_scale, w["t_end"] * x_scale
+        if w["is_baseline"]:
+            color = _WIN_COLORS["baseline"]
+        elif w["is_interval"]:
+            color = _WIN_COLORS["rest"]
+        else:
+            num = int(re.search(r"\d+", w["label"]).group())
+            color = _WIN_COLORS["task_odd"] if num % 2 == 1 else _WIN_COLORS["task_even"]
+        ax.axvspan(x0, x1, alpha=0.35, color=color, lw=0)
+
+        if not w["is_interval"]:
+            mid = (x0 + x1) / 2
+            c = "#1f5fbf" if w["is_baseline"] else "#333333"
+            ax.annotate(
+                w["label"],
+                xy=(mid, 0), xycoords=("data", "axes fraction"),
+                xytext=(0, label_y * 72),   # points below axes
+                textcoords="offset points",
+                ha="center", va="top", fontsize=6.5, color=c,
+                fontweight="bold" if w["is_baseline"] else "normal",
+                annotation_clip=False,
+            )
+
+
 def plot_combined_summary(
     csv_path,
     fnirs_result,
@@ -151,28 +191,36 @@ def plot_combined_summary(
     save_path=None,
     show=False,
 ):
-    """Three-panel figure: fNIRS HbO/HbR | PPG filtered + peaks | EEG Focus Index."""
+    """Three-panel figure with task-timeline shading: fNIRS HbO/HbR | PPG | EEG FI."""
     stem = os.path.splitext(os.path.basename(csv_path))[0]
 
-    fig = plt.figure(figsize=(18, 11))
+    # Parse task windows from the filename (same logic as eeg_fi_line_chart.py)
+    try:
+        windows = _fi_mod.get_timeline(csv_path)
+    except Exception:
+        windows = []
+
+    fig = plt.figure(figsize=(20, 12))
     fig.suptitle(stem, fontsize=11, fontweight="bold")
-    gs = gridspec.GridSpec(3, 1, hspace=0.55)
+    gs = gridspec.GridSpec(3, 1, hspace=0.72)
 
     # ── Panel 1: fNIRS HbO / HbR ─────────────────────────────────────────────
     ax1 = fig.add_subplot(gs[0])
     if isinstance(fnirs_result, dict):
-        HbO = fnirs_result["HbO"]
-        HbR = fnirs_result["HbR"]
+        HbO  = fnirs_result["HbO"]
+        HbR  = fnirs_result["HbR"]
         fs_f = fnirs_result.get("fs", fnirs_fs)
-        t = np.arange(len(HbO)) / fs_f
-        ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO")
-        ax1.plot(t, HbR, color="blue", lw=0.9, label="HbR")
-        sci = fnirs_result.get("sci_r", float("nan"))
+        t    = np.arange(len(HbO)) / fs_f
+        _shade_timeline(ax1, windows, x_scale=1.0)
+        ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO", zorder=3)
+        ax1.plot(t, HbR, color="blue", lw=0.9, label="HbR", zorder=3)
+        sci     = fnirs_result.get("sci_r", float("nan"))
         hb_corr = fnirs_result.get("Hb_corr", float("nan"))
         ax1.set_title(
             f"fNIRS — HbO / HbR   SCI r={sci:.3f} | HbO–HbR corr={hb_corr:.3f}",
             fontsize=9,
         )
+        ax1.set_xlim(0, t[-1])
     else:
         ax1.text(0.5, 0.5, f"fNIRS unavailable:\n{fnirs_result}",
                  ha="center", va="center", transform=ax1.transAxes, fontsize=8)
@@ -180,7 +228,7 @@ def plot_combined_summary(
     ax1.set_xlabel("Time (s)", fontsize=8)
     ax1.set_ylabel("µM", fontsize=8)
     ax1.legend(loc="upper right", fontsize=8)
-    ax1.grid(True, alpha=0.25)
+    ax1.grid(True, alpha=0.25, zorder=0)
     ax1.tick_params(labelsize=7)
 
     # ── Panel 2: PPG filtered signal + peaks ─────────────────────────────────
@@ -200,16 +248,24 @@ def plot_combined_summary(
         ppg_raw  = _ppg_mod.fill_missing(ppg_raw)
         ppg_filt = _ppg_mod.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
 
+        # skip first 5 s to avoid filter transient when setting y-limits
+        skip = min(5 * ppg_fs, len(ppg_filt) // 2)
         peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
         hr = (60 / (np.mean(np.diff(peaks)) / ppg_fs)) if len(peaks) > 1 else float("nan")
 
         t_ppg = np.arange(len(ppg_filt)) / ppg_fs
-        ax2.plot(t_ppg, ppg_filt, color="darkgreen", lw=0.8, label="PPG filtered")
+        _shade_timeline(ax2, windows, x_scale=1.0)
+        ax2.plot(t_ppg, ppg_filt, color="darkgreen", lw=0.8, label="PPG filtered", zorder=3)
         if len(peaks):
-            ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks")
-        ax2.set_title(
-            f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9
-        )
+            ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks", zorder=4)
+
+        # clip y-axis to signal range after transient
+        if skip < len(ppg_filt):
+            sig = ppg_filt[skip:]
+            pad = (sig.max() - sig.min()) * 0.15 or 1
+            ax2.set_ylim(sig.min() - pad, sig.max() + pad)
+        ax2.set_xlim(0, t_ppg[-1])
+        ax2.set_title(f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9)
     except Exception as exc:
         ax2.text(0.5, 0.5, f"PPG unavailable:\n{exc}",
                  ha="center", va="center", transform=ax2.transAxes, fontsize=8)
@@ -217,7 +273,7 @@ def plot_combined_summary(
     ax2.set_xlabel("Time (s)", fontsize=8)
     ax2.set_ylabel("Amplitude", fontsize=8)
     ax2.legend(loc="upper right", fontsize=8)
-    ax2.grid(True, alpha=0.25)
+    ax2.grid(True, alpha=0.25, zorder=0)
     ax2.tick_params(labelsize=7)
 
     # ── Panel 3: EEG Focus Index ──────────────────────────────────────────────
@@ -225,16 +281,17 @@ def plot_combined_summary(
     if edf_path and os.path.exists(edf_path):
         try:
             data, _, fs_e = load_eeg_from_edf(edf_path, fi_channels)
-            t_c, fi      = compute_fi_timeline(data, fs_e, win_sec=fi_win_sec, step_sec=fi_step_sec)
+            t_c, fi       = compute_fi_timeline(data, fs_e, win_sec=fi_win_sec, step_sec=fi_step_sec)
             fi_avg        = fi.mean(axis=0)
             t_min         = t_c / 60
 
-            # smooth ~60 s
-            k = max(1, int(60 / fi_step_sec))
+            k         = max(1, int(60 / fi_step_sec))
             fi_smooth = np.convolve(fi_avg, np.ones(k) / k, mode="same")
 
-            ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.5, label="FI = β/α")
-            ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6, label="FI smoothed")
+            _shade_timeline(ax3, windows, x_scale=1 / 60)
+            ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.5, label="FI = β/α",    zorder=3)
+            ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6,            label="FI smoothed", zorder=4)
+            ax3.set_xlim(0, t_min[-1])
             ax3.set_title(
                 f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9
             )
@@ -249,8 +306,21 @@ def plot_combined_summary(
         ax3.set_title("EEG FI — unavailable", fontsize=9)
     ax3.set_ylabel("FI = β/α", fontsize=8)
     ax3.legend(loc="upper right", fontsize=8)
-    ax3.grid(True, alpha=0.25)
+    ax3.grid(True, alpha=0.25, zorder=0)
     ax3.tick_params(labelsize=7)
+
+    # ── Legend for window colours ─────────────────────────────────────────────
+    import matplotlib.patches as mpatches
+    patch_handles = [
+        mpatches.Patch(facecolor=_WIN_COLORS["baseline"],  alpha=0.5, label="Baseline (F0)"),
+        mpatches.Patch(facecolor=_WIN_COLORS["task_odd"],  alpha=0.5, label="Task (odd)"),
+        mpatches.Patch(facecolor=_WIN_COLORS["task_even"], alpha=0.5, label="Task (even)"),
+        mpatches.Patch(facecolor=_WIN_COLORS["rest"],      alpha=0.5, label="Rest interval"),
+    ]
+    fig.legend(handles=patch_handles, loc="lower center", ncol=4,
+               fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.01))
+
+    plt.subplots_adjust(bottom=0.08)
 
     if save_path:
         os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
