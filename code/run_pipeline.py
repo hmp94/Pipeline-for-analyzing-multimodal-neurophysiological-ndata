@@ -46,6 +46,14 @@ import shutil
 import sys
 import tempfile
 
+import matplotlib
+matplotlib.use("Agg")          # non-interactive backend; overridden below when needed
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+import pandas as pd
+from scipy.signal import find_peaks
+
 
 # ── Dynamic import  (filenames contain spaces / hyphens) ─────────────────────
 def _import_path(module_name, file_path):
@@ -80,10 +88,12 @@ _fi_mod = _import_path(
     os.path.join(CODE_DIR, "eeg_fi_line_chart.py"),
 )
 
-convert_csv_to_edf = _csv_to_edf_mod.convert_csv_to_edf
-check_fNIRS_SCI    = _fnirs_mod.check_fNIRS_SCI
-check_ppg          = _ppg_mod.check_ppg
-plot_fi_timeline   = _fi_mod.plot_fi_timeline
+convert_csv_to_edf  = _csv_to_edf_mod.convert_csv_to_edf
+check_fNIRS_SCI     = _fnirs_mod.check_fNIRS_SCI
+check_ppg           = _ppg_mod.check_ppg
+plot_fi_timeline    = _fi_mod.plot_fi_timeline
+load_eeg_from_edf   = _fi_mod.load_eeg_from_edf
+compute_fi_timeline = _fi_mod.compute_fi_timeline
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -118,11 +128,137 @@ def _print_summary(results):
     for r in results:
         name = os.path.basename(r["file"])
         print(f"\n  {name}")
-        print(f"    EEG   : {_status_str(r.get('eeg'))}")
-        print(f"    fNIRS : {_status_str(r.get('fnirs'))}")
-        print(f"    PPG   : {_status_str(r.get('ppg'))}")
-        print(f"    FI    : {r.get('fi', 'skipped')}")
+        print(f"    EEG     : {_status_str(r.get('eeg'))}")
+        print(f"    fNIRS   : {_status_str(r.get('fnirs'))}")
+        print(f"    PPG     : {_status_str(r.get('ppg'))}")
+        print(f"    FI      : {r.get('fi', 'skipped')}")
+        print(f"    Summary : {r.get('summary', 'skipped')}")
     print()
+
+
+# ── Combined 3-panel summary plot ────────────────────────────────────────────
+def plot_combined_summary(
+    csv_path,
+    fnirs_result,
+    edf_path,
+    fnirs_fs=100,
+    ppg_column="Header 25 Data",
+    ppg_fs=100,
+    ppg_first_samples_to_ignore=0,
+    fi_channels=("AF3_processed", "AF4_processed"),
+    fi_win_sec=5,
+    fi_step_sec=1,
+    save_path=None,
+    show=False,
+):
+    """Three-panel figure: fNIRS HbO/HbR | PPG filtered + peaks | EEG Focus Index."""
+    stem = os.path.splitext(os.path.basename(csv_path))[0]
+
+    fig = plt.figure(figsize=(18, 11))
+    fig.suptitle(stem, fontsize=11, fontweight="bold")
+    gs = gridspec.GridSpec(3, 1, hspace=0.55)
+
+    # ── Panel 1: fNIRS HbO / HbR ─────────────────────────────────────────────
+    ax1 = fig.add_subplot(gs[0])
+    if isinstance(fnirs_result, dict):
+        HbO = fnirs_result["HbO"]
+        HbR = fnirs_result["HbR"]
+        fs_f = fnirs_result.get("fs", fnirs_fs)
+        t = np.arange(len(HbO)) / fs_f
+        ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO")
+        ax1.plot(t, HbR, color="blue", lw=0.9, label="HbR")
+        sci = fnirs_result.get("sci_r", float("nan"))
+        hb_corr = fnirs_result.get("Hb_corr", float("nan"))
+        ax1.set_title(
+            f"fNIRS — HbO / HbR   SCI r={sci:.3f} | HbO–HbR corr={hb_corr:.3f}",
+            fontsize=9,
+        )
+    else:
+        ax1.text(0.5, 0.5, f"fNIRS unavailable:\n{fnirs_result}",
+                 ha="center", va="center", transform=ax1.transAxes, fontsize=8)
+        ax1.set_title("fNIRS — unavailable", fontsize=9)
+    ax1.set_xlabel("Time (s)", fontsize=8)
+    ax1.set_ylabel("µM", fontsize=8)
+    ax1.legend(loc="upper right", fontsize=8)
+    ax1.grid(True, alpha=0.25)
+    ax1.tick_params(labelsize=7)
+
+    # ── Panel 2: PPG filtered signal + peaks ─────────────────────────────────
+    ax2 = fig.add_subplot(gs[1])
+    try:
+        df_ppg = pd.read_csv(csv_path)
+        df_ppg.columns = df_ppg.columns.str.strip()
+        col = ppg_column.strip()
+        if col not in df_ppg.columns:
+            candidates = [c for c in df_ppg.columns if "25" in c]
+            col = candidates[0] if candidates else df_ppg.columns[0]
+
+        ppg_vals = pd.to_numeric(df_ppg[col], errors="coerce")
+        ppg_vals = _ppg_mod.truncate_at_first_nan(ppg_vals).dropna()
+        ppg_raw  = _ppg_mod.convert_to_raw(ppg_vals.to_numpy())
+        ppg_raw  = ppg_raw[max(0, ppg_first_samples_to_ignore):]
+        ppg_raw  = _ppg_mod.fill_missing(ppg_raw)
+        ppg_filt = _ppg_mod.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
+
+        peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
+        hr = (60 / (np.mean(np.diff(peaks)) / ppg_fs)) if len(peaks) > 1 else float("nan")
+
+        t_ppg = np.arange(len(ppg_filt)) / ppg_fs
+        ax2.plot(t_ppg, ppg_filt, color="darkgreen", lw=0.8, label="PPG filtered")
+        if len(peaks):
+            ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks")
+        ax2.set_title(
+            f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9
+        )
+    except Exception as exc:
+        ax2.text(0.5, 0.5, f"PPG unavailable:\n{exc}",
+                 ha="center", va="center", transform=ax2.transAxes, fontsize=8)
+        ax2.set_title("PPG — unavailable", fontsize=9)
+    ax2.set_xlabel("Time (s)", fontsize=8)
+    ax2.set_ylabel("Amplitude", fontsize=8)
+    ax2.legend(loc="upper right", fontsize=8)
+    ax2.grid(True, alpha=0.25)
+    ax2.tick_params(labelsize=7)
+
+    # ── Panel 3: EEG Focus Index ──────────────────────────────────────────────
+    ax3 = fig.add_subplot(gs[2])
+    if edf_path and os.path.exists(edf_path):
+        try:
+            data, _, fs_e = load_eeg_from_edf(edf_path, fi_channels)
+            t_c, fi      = compute_fi_timeline(data, fs_e, win_sec=fi_win_sec, step_sec=fi_step_sec)
+            fi_avg        = fi.mean(axis=0)
+            t_min         = t_c / 60
+
+            # smooth ~60 s
+            k = max(1, int(60 / fi_step_sec))
+            fi_smooth = np.convolve(fi_avg, np.ones(k) / k, mode="same")
+
+            ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.5, label="FI = β/α")
+            ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6, label="FI smoothed")
+            ax3.set_title(
+                f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9
+            )
+            ax3.set_xlabel("Time (min)", fontsize=8)
+        except Exception as exc:
+            ax3.text(0.5, 0.5, f"FI error:\n{exc}",
+                     ha="center", va="center", transform=ax3.transAxes, fontsize=8)
+            ax3.set_title("EEG FI — error", fontsize=9)
+    else:
+        ax3.text(0.5, 0.5, "No EDF produced — EEG FI unavailable",
+                 ha="center", va="center", transform=ax3.transAxes, fontsize=8)
+        ax3.set_title("EEG FI — unavailable", fontsize=9)
+    ax3.set_ylabel("FI = β/α", fontsize=8)
+    ax3.legend(loc="upper right", fontsize=8)
+    ax3.grid(True, alpha=0.25)
+    ax3.tick_params(labelsize=7)
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"  Saved → {save_path}")
+    if show:
+        plt.show()
+    plt.close(fig)
 
 
 # ── Core pipeline ─────────────────────────────────────────────────────────────
@@ -150,6 +286,9 @@ def run_pipeline(
     fi_win_sec=5,
     fi_step_sec=1,
     fi_save_dir=None,
+    # Combined summary
+    summary_save_dir=None,
+    show_summary=False,
 ):
     """Run all four pipeline steps on one CSV file or a folder of CSV files.
 
@@ -253,6 +392,32 @@ def run_pipeline(
             print("  Skipped — no EDF produced for this recording.")
             record["fi"] = "skipped"
 
+        # ── Step 5: Combined 3-panel summary ─────────────────────────────────
+        _section("STEP 5 — Combined summary plot (fNIRS | PPG | EEG FI)")
+        try:
+            summary_path = None
+            if summary_save_dir:
+                os.makedirs(summary_save_dir, exist_ok=True)
+                summary_path = os.path.join(summary_save_dir, stem + "_summary.png")
+            plot_combined_summary(
+                csv_path=csv_path,
+                fnirs_result=record.get("fnirs"),
+                edf_path=edf_path,
+                fnirs_fs=fnirs_fs,
+                ppg_column=ppg_column,
+                ppg_fs=ppg_fs,
+                ppg_first_samples_to_ignore=ppg_first_samples_to_ignore,
+                fi_channels=fi_channels,
+                fi_win_sec=fi_win_sec,
+                fi_step_sec=fi_step_sec,
+                save_path=summary_path,
+                show=show_summary,
+            )
+            record["summary"] = summary_path or ("shown" if show_summary else "skipped")
+        except Exception as exc:
+            print(f"  [SUMMARY ERROR] {exc}")
+            record["summary"] = f"error: {exc}"
+
         results.append(record)
 
     _print_summary(results)
@@ -277,6 +442,8 @@ def _parse_args():
     p.add_argument("--fnirs-dwt",    action="store_true",    help="DWT denoising on fNIRS intensity")
     p.add_argument("--no-plot",      action="store_true",    help="Suppress all matplotlib windows")
     p.add_argument("--fi-save",      default=None,           help="Dir to save FI plots (default: show)")
+    p.add_argument("--summary-save", default=None,           help="Dir to save combined summary PNGs")
+    p.add_argument("--show-summary", action="store_true",    help="Show combined summary plot interactively")
     return p.parse_args()
 
 
@@ -295,4 +462,6 @@ if __name__ == "__main__":
         fnirs_plot=not args.no_plot,
         ppg_plot=not args.no_plot,
         fi_save_dir=args.fi_save,
+        summary_save_dir=args.summary_save,
+        show_summary=args.show_summary,
     )

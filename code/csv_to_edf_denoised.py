@@ -380,7 +380,7 @@ def convert_csv_to_edf(csv_folder_path, edf_folder_path, sampling_frequency, dev
                 signal_headers.append({
                     'label': label,
                     'dimension': 'uV',
-                    'sample_frequency': sampling_rate,  
+                    'sample_frequency': sampling_frequency,
                     'physical_min': signal.min(),
                     'physical_max': signal.max(),
                     'digital_min': -32768,
@@ -489,7 +489,7 @@ def convert_csv_to_edf(csv_folder_path, edf_folder_path, sampling_frequency, dev
                 signal_headers.append({
                     'label': label,
                     'dimension': 'uV',
-                    'sample_frequency': sampling_rate,  
+                    'sample_frequency': sampling_frequency,
                     'physical_min': signal.min(),
                     'physical_max': signal.max(),
                     'digital_min': -32768,
