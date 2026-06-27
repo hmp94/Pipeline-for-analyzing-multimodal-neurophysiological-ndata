@@ -145,15 +145,20 @@ _WIN_COLORS = {
 }
 
 
-def _shade_timeline(ax, windows, x_scale=1.0, label_y=-0.13):
-    """Add coloured task-window spans and labels to an axes.
+def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
+    """Add coloured spans, double-headed bracket arrows, and labels for each task window.
 
-    x_scale: multiply window times by this (1.0 → seconds, 1/60 → minutes).
-    label_y: axes-fraction y position for the task labels below the x-axis.
+    x_scale  : multiply window times (1.0 → seconds axis, 1/60 → minutes axis).
+    arrow_y  : axes-fraction y for the <-> bracket arrow.
+    label_y  : axes-fraction y for the task label (below the arrow).
     """
     import re
+    tick_half = 0.018   # half-height of the end-cap ticks in axes fraction
+
     for w in windows:
         x0, x1 = w["t_start"] * x_scale, w["t_end"] * x_scale
+
+        # ── background colour ──────────────────────────────────────────────
         if w["is_baseline"]:
             color = _WIN_COLORS["baseline"]
         elif w["is_interval"]:
@@ -163,18 +168,38 @@ def _shade_timeline(ax, windows, x_scale=1.0, label_y=-0.13):
             color = _WIN_COLORS["task_odd"] if num % 2 == 1 else _WIN_COLORS["task_even"]
         ax.axvspan(x0, x1, alpha=0.35, color=color, lw=0)
 
-        if not w["is_interval"]:
-            mid = (x0 + x1) / 2
-            c = "#1f5fbf" if w["is_baseline"] else "#333333"
+        if w["is_interval"]:
+            continue
+
+        arrow_color = "#1f5fbf" if w["is_baseline"] else "#555555"
+
+        # ── double-headed arrow spanning the window ────────────────────────
+        ax.annotate(
+            "", xy=(x1, arrow_y), xytext=(x0, arrow_y),
+            xycoords=("data", "axes fraction"),
+            arrowprops=dict(arrowstyle="<->", color=arrow_color, lw=1.1),
+            annotation_clip=False,
+        )
+
+        # ── vertical end-cap ticks at x0 and x1 ───────────────────────────
+        for xc in (x0, x1):
             ax.annotate(
-                w["label"],
-                xy=(mid, 0), xycoords=("data", "axes fraction"),
-                xytext=(0, label_y * 72),   # points below axes
-                textcoords="offset points",
-                ha="center", va="top", fontsize=6.5, color=c,
-                fontweight="bold" if w["is_baseline"] else "normal",
+                "", xy=(xc, arrow_y - tick_half), xytext=(xc, arrow_y + tick_half),
+                xycoords=("data", "axes fraction"),
+                arrowprops=dict(arrowstyle="-", color=arrow_color, lw=1.1),
                 annotation_clip=False,
             )
+
+        # ── task label centred below the arrow ────────────────────────────
+        mid = (x0 + x1) / 2
+        ax.annotate(
+            w["label"],
+            xy=(mid, label_y), xycoords=("data", "axes fraction"),
+            ha="center", va="top", fontsize=6.5,
+            color=arrow_color,
+            fontweight="bold" if w["is_baseline"] else "normal",
+            annotation_clip=False,
+        )
 
 
 def plot_combined_summary(
@@ -320,7 +345,7 @@ def plot_combined_summary(
     fig.legend(handles=patch_handles, loc="lower center", ncol=4,
                fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.01))
 
-    plt.subplots_adjust(bottom=0.08)
+    plt.subplots_adjust(bottom=0.12)
 
     if save_path:
         os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
