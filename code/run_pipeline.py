@@ -39,11 +39,18 @@ Example
   python run_pipeline.py data/raw/csv/ data/edf
 """
 
+import os
+import sys
+
+# Set up CODE_DIR on sys.path first so sibling modules are findable when the
+# dynamically-loaded modules run their own top-level imports.
+CODE_DIR = os.path.dirname(os.path.abspath(__file__))
+if CODE_DIR not in sys.path:
+    sys.path.insert(0, CODE_DIR)
+
 import argparse
 import importlib.util
-import os
 import shutil
-import sys
 import tempfile
 
 import matplotlib
@@ -63,13 +70,9 @@ def _import_path(module_name, file_path):
     spec.loader.exec_module(mod)
     return mod
 
-
-CODE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Ensure sibling modules (intensity_filter, WPT_denoising_threshold, …) are
-# importable when the dynamically-loaded modules do their own top-level imports.
-if CODE_DIR not in sys.path:
-    sys.path.insert(0, CODE_DIR)
+# intensity_filter (1).py must be registered under the plain name "intensity_filter"
+# before fnirs_check and csv_to_edf_denoised try to import it.
+_import_path("intensity_filter", os.path.join(CODE_DIR, "intensity_filter (1).py"))
 
 _csv_to_edf_mod = _import_path(
     "csv_to_edf_denoised",
@@ -134,6 +137,70 @@ def _print_summary(results):
         print(f"    FI      : {r.get('fi', 'skipped')}")
         print(f"    Summary : {r.get('summary', 'skipped')}")
     print()
+
+
+# ── Statistical helpers ───────────────────────────────────────────────────────
+def _window_segments(signal, fs, windows):
+    """Split a 1-D signal into per-window segments → (task_segs, rest_segs)."""
+    task_segs, rest_segs = [], []
+    n = len(signal)
+    for w in windows:
+        s = max(0, int(w["t_start"] * fs))
+        e = min(n, int(w["t_end"] * fs))
+        if e <= s:
+            continue
+        seg = signal[s:e]
+        if w["is_baseline"] or w["is_interval"]:
+            rest_segs.append(seg)
+        else:
+            task_segs.append(seg)
+    return task_segs, rest_segs
+
+
+def _fi_window_segments(t_centers, fi_avg, windows):
+    """Split FI time-series (t_centers in seconds) into (task_segs, rest_segs)."""
+    task_segs, rest_segs = [], []
+    for w in windows:
+        mask = (t_centers >= w["t_start"]) & (t_centers < w["t_end"])
+        if not mask.any():
+            continue
+        seg = fi_avg[mask]
+        if w["is_baseline"] or w["is_interval"]:
+            rest_segs.append(seg)
+        else:
+            task_segs.append(seg)
+    return task_segs, rest_segs
+
+
+def _mw_test(task_segs, rest_segs, reducer=np.mean):
+    """Per-window summary stat then Mann-Whitney U (two-sided).
+
+    Returns dict: task_mean, task_std, rest_mean, rest_std, U, p, sig, r.
+    """
+    from scipy.stats import mannwhitneyu, norm
+
+    task_vals = [float(reducer(s)) for s in task_segs if len(s) > 0]
+    rest_vals = [float(reducer(s)) for s in rest_segs if len(s) > 0]
+
+    out = {
+        "task_mean": np.nanmean(task_vals) if task_vals else np.nan,
+        "task_std":  np.nanstd(task_vals)  if task_vals else np.nan,
+        "rest_mean": np.nanmean(rest_vals) if rest_vals else np.nan,
+        "rest_std":  np.nanstd(rest_vals)  if rest_vals else np.nan,
+        "n_task": len(task_vals), "n_rest": len(rest_vals),
+        "U": np.nan, "p": np.nan, "sig": "n/a", "r": np.nan,
+    }
+    if len(task_vals) >= 2 and len(rest_vals) >= 2:
+        try:
+            U, p = mannwhitneyu(task_vals, rest_vals, alternative="two-sided")
+            n_total = len(task_vals) + len(rest_vals)
+            z = abs(norm.ppf(p / 2)) if 0 < p < 1 else 0.0
+            r = z / np.sqrt(n_total)
+            sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
+            out.update({"U": U, "p": p, "sig": sig, "r": r})
+        except Exception:
+            pass
+    return out
 
 
 # ── Combined 3-panel summary plot ────────────────────────────────────────────
@@ -202,6 +269,21 @@ def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
         )
 
 
+def _fmt_row(label, s):
+    """Format one stats-dict into a table row list."""
+    def _f(v, decimals=4):
+        return f"{v:.{decimals}f}" if not np.isnan(v) else "n/a"
+    return [
+        label,
+        f"{_f(s['task_mean'])} ± {_f(s['task_std'])}",
+        f"{_f(s['rest_mean'])} ± {_f(s['rest_std'])}",
+        f"{_f(s['U'], 0)}" if not np.isnan(s["U"]) else "n/a",
+        f"{_f(s['p'], 4)}" if not np.isnan(s["p"]) else "n/a",
+        s["sig"],
+        f"{_f(s['r'], 3)}" if not np.isnan(s["r"]) else "n/a",
+    ]
+
+
 def plot_combined_summary(
     csv_path,
     fnirs_result,
@@ -219,15 +301,16 @@ def plot_combined_summary(
     """Three-panel figure with task-timeline shading: fNIRS HbO/HbR | PPG | EEG FI."""
     stem = os.path.splitext(os.path.basename(csv_path))[0]
 
-    # Parse task windows from the filename (same logic as eeg_fi_line_chart.py)
     try:
         windows = _fi_mod.get_timeline(csv_path)
     except Exception:
         windows = []
 
-    fig = plt.figure(figsize=(20, 12))
+    fig = plt.figure(figsize=(20, 16))
     fig.suptitle(stem, fontsize=11, fontweight="bold")
-    gs = gridspec.GridSpec(3, 1, hspace=0.72)
+    gs = gridspec.GridSpec(4, 1, height_ratios=[3, 3, 3, 1.6], hspace=0.80)
+
+    stats_rows = []   # filled as we process each modality
 
     # ── Panel 1: fNIRS HbO / HbR ─────────────────────────────────────────────
     ax1 = fig.add_subplot(gs[0])
@@ -246,6 +329,14 @@ def plot_combined_summary(
             fontsize=9,
         )
         ax1.set_xlim(0, t[-1])
+
+        # stats
+        hbo_t, hbo_r = _window_segments(HbO, fs_f, windows)
+        hbr_t, hbr_r = _window_segments(HbR, fs_f, windows)
+        s_hbo = _mw_test(hbo_t, hbo_r)
+        s_hbr = _mw_test(hbr_t, hbr_r)
+        stats_rows.append(_fmt_row("fNIRS HbO (µM)", s_hbo))
+        stats_rows.append(_fmt_row("fNIRS HbR (µM)", s_hbr))
     else:
         ax1.text(0.5, 0.5, f"fNIRS unavailable:\n{fnirs_result}",
                  ha="center", va="center", transform=ax1.transAxes, fontsize=8)
@@ -273,7 +364,6 @@ def plot_combined_summary(
         ppg_raw  = _ppg_mod.fill_missing(ppg_raw)
         ppg_filt = _ppg_mod.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
 
-        # skip first 5 s to avoid filter transient when setting y-limits
         skip = min(5 * ppg_fs, len(ppg_filt) // 2)
         peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
         hr = (60 / (np.mean(np.diff(peaks)) / ppg_fs)) if len(peaks) > 1 else float("nan")
@@ -284,13 +374,17 @@ def plot_combined_summary(
         if len(peaks):
             ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks", zorder=4)
 
-        # clip y-axis to signal range after transient
         if skip < len(ppg_filt):
-            sig = ppg_filt[skip:]
-            pad = (sig.max() - sig.min()) * 0.15 or 1
-            ax2.set_ylim(sig.min() - pad, sig.max() + pad)
+            sig_clip = ppg_filt[skip:]
+            pad = (sig_clip.max() - sig_clip.min()) * 0.15 or 1
+            ax2.set_ylim(sig_clip.min() - pad, sig_clip.max() + pad)
         ax2.set_xlim(0, t_ppg[-1])
         ax2.set_title(f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9)
+
+        # stats: use std per window as amplitude proxy (signal is zero-mean after filtering)
+        ppg_t, ppg_r = _window_segments(ppg_filt, ppg_fs, windows)
+        s_ppg = _mw_test(ppg_t, ppg_r, reducer=np.std)
+        stats_rows.append(_fmt_row("PPG amplitude (std)", s_ppg))
     except Exception as exc:
         ax2.text(0.5, 0.5, f"PPG unavailable:\n{exc}",
                  ha="center", va="center", transform=ax2.transAxes, fontsize=8)
@@ -321,6 +415,11 @@ def plot_combined_summary(
                 f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9
             )
             ax3.set_xlabel("Time (min)", fontsize=8)
+
+            # stats
+            fi_t, fi_r = _fi_window_segments(t_c, fi_avg, windows)
+            s_fi = _mw_test(fi_t, fi_r)
+            stats_rows.append(_fmt_row("EEG FI (β/α)", s_fi))
         except Exception as exc:
             ax3.text(0.5, 0.5, f"FI error:\n{exc}",
                      ha="center", va="center", transform=ax3.transAxes, fontsize=8)
@@ -334,6 +433,40 @@ def plot_combined_summary(
     ax3.grid(True, alpha=0.25, zorder=0)
     ax3.tick_params(labelsize=7)
 
+    # ── Panel 4: Statistics table ─────────────────────────────────────────────
+    ax4 = fig.add_subplot(gs[3])
+    ax4.axis("off")
+    ax4.set_title("Task vs Rest — Mann-Whitney U test (two-sided)", fontsize=9, pad=4)
+
+    col_labels = ["Measure", "Task mean ± SD", "Rest mean ± SD",
+                  "U statistic", "p-value", "Sig.", "Effect r"]
+    if stats_rows:
+        tbl = ax4.table(
+            cellText=stats_rows,
+            colLabels=col_labels,
+            loc="center",
+            cellLoc="center",
+        )
+        tbl.auto_set_font_size(False)
+        tbl.set_fontsize(8)
+        tbl.scale(1, 1.5)
+
+        # colour the significance column
+        sig_col_idx = 5
+        for row_idx, row in enumerate(stats_rows, start=1):
+            sig = row[sig_col_idx]
+            cell = tbl[row_idx, sig_col_idx]
+            if sig in ("*", "**", "***"):
+                cell.set_facecolor("#d4edda")   # green
+            elif sig == "ns":
+                cell.set_facecolor("#f8d7da")   # red
+        # bold header
+        for col_idx in range(len(col_labels)):
+            tbl[0, col_idx].set_text_props(fontweight="bold")
+    else:
+        ax4.text(0.5, 0.5, "No statistics available",
+                 ha="center", va="center", transform=ax4.transAxes, fontsize=9)
+
     # ── Legend for window colours ─────────────────────────────────────────────
     import matplotlib.patches as mpatches
     patch_handles = [
@@ -343,9 +476,9 @@ def plot_combined_summary(
         mpatches.Patch(facecolor=_WIN_COLORS["rest"],      alpha=0.5, label="Rest interval"),
     ]
     fig.legend(handles=patch_handles, loc="lower center", ncol=4,
-               fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.01))
+               fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.005))
 
-    plt.subplots_adjust(bottom=0.12)
+    plt.subplots_adjust(bottom=0.06)
 
     if save_path:
         os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
