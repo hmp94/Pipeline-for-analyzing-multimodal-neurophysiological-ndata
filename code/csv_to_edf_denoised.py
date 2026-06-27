@@ -523,6 +523,3 @@ if __name__ == '__main__':
     convert_csv_to_edf(csv_folder_path, edf_folder_path, sampling_rate, device='BL')
 
 
-path = '/user/minhphan/Documents/Brain-Life/drive-download-20260626T064830Z-3-001'
-
-convert_csv_to_edf(path, edf_folder_path, sampling_rate, device='BL')

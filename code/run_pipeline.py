@@ -58,6 +58,11 @@ def _import_path(module_name, file_path):
 
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Ensure sibling modules (intensity_filter, WPT_denoising_threshold, …) are
+# importable when the dynamically-loaded modules do their own top-level imports.
+if CODE_DIR not in sys.path:
+    sys.path.insert(0, CODE_DIR)
+
 _csv_to_edf_mod = _import_path(
     "csv_to_edf_denoised",
     os.path.join(CODE_DIR, "csv_to_edf_denoised.py"),
