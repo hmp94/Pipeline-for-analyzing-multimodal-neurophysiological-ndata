@@ -5,10 +5,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.signal import welch
 import pyedflib
+from metadata import (
+    TASK_DUR, EEG_REST_DUR as REST_DUR, PREFOCUS_DUR,
+    EEG_FS, EEG_CHANNELS, EEG_ALPHA, EEG_BETA, EEG_FI_WIN, EEG_FI_STEP,
+    DATA_EDF_DIR, GRAPH_EEG_DIR,
+)
 
 # ── Timeline ──────────────────────────────────────────────────────────────────
-TASK_DUR     = 120   # seconds
-INTERVAL_DUR = 60    # seconds
+# Loaded from metadata.py
 
 def parse_task_order(edf_path):
     m = re.search(r'(F\d+(?:-F\d+)+)', os.path.basename(edf_path))
@@ -18,12 +22,15 @@ def build_windows(task_labels):
     windows, t = [], 0
     for i, label in enumerate(task_labels):
         windows.append(dict(label=label, t_start=t, t_end=t + TASK_DUR,
-                            is_baseline=(i == 0), is_interval=False))
+                            is_baseline=(i == 0), is_interval=False, is_prefocus=False))
         t += TASK_DUR
-        if 0 < i < len(task_labels) - 1:
-            windows.append(dict(label='rest', t_start=t, t_end=t + INTERVAL_DUR,
-                                is_baseline=False, is_interval=True))
-            t += INTERVAL_DUR
+        if i < len(task_labels) - 1:
+            windows.append(dict(label='rest', t_start=t, t_end=t + REST_DUR,
+                                is_baseline=False, is_interval=True, is_prefocus=False))
+            t += REST_DUR
+            windows.append(dict(label='pre-focus', t_start=t, t_end=t + PREFOCUS_DUR,
+                                is_baseline=False, is_interval=False, is_prefocus=True))
+            t += PREFOCUS_DUR
     return windows
 
 def get_timeline(edf_path):
@@ -37,8 +44,8 @@ def bandpower(x, fs, lo, hi, nperseg):
 
 def compute_fi(x, fs, nperseg):
     """Focus Index = β / α"""
-    beta  = bandpower(x, fs, 13, 30, nperseg)
-    alpha = bandpower(x, fs, 8,  13, nperseg)
+    beta  = bandpower(x, fs, EEG_BETA[0],  EEG_BETA[1],  nperseg)
+    alpha = bandpower(x, fs, EEG_ALPHA[0], EEG_ALPHA[1], nperseg)
     return beta / (alpha + 1e-12)
 
 # ── Load EDF ──────────────────────────────────────────────────────────────────
@@ -73,10 +80,11 @@ def compute_fi_timeline(data, fs, win_sec=5, step_sec=1):
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 _WIN_COLORS = {
-    'baseline':  '#cfe0f3',   # blue
-    'task_odd':  '#d8ecd8',   # green
-    'task_even': '#fbe3cc',   # orange
-    'rest':      '#e3e3e3',   # gray (60 s interval)
+    'baseline':  '#7ab8e8',
+    'task_odd':  '#72c472',
+    'task_even': '#72c472',
+    'rest':      '#b0b0b0',
+    'prefocus':  '#f5d76e',
 }
 
 def plot_fi_timeline(edf_path,
@@ -110,7 +118,10 @@ def plot_fi_timeline(edf_path,
     kernel        = np.ones(smooth_window) / smooth_window
     fi_smooth     = np.convolve(fi_avg, kernel, mode='same')
 
-    fig, ax = plt.subplots(figsize=(20, 4))
+    import matplotlib.gridspec as gridspec
+    fig = plt.figure(figsize=(20, 8))
+    gs  = gridspec.GridSpec(2, 1, height_ratios=[3, 1.4], hspace=0.55)
+    ax  = fig.add_subplot(gs[0])
 
     # --- background shading ---
     for w in windows:
@@ -118,6 +129,8 @@ def plot_fi_timeline(edf_path,
             color = _WIN_COLORS['baseline']
         elif w['is_interval']:
             color = _WIN_COLORS['rest']
+        elif w['is_prefocus']:
+            color = _WIN_COLORS['prefocus']
         else:
             label_num = int(re.search(r'\d+', w['label']).group())
             color = _WIN_COLORS['task_odd'] if label_num % 2 == 1 else _WIN_COLORS['task_even']
@@ -132,7 +145,7 @@ def plot_fi_timeline(edf_path,
     # --- per-task mean line ---
     first_mean = True
     for w in windows:
-        if w['is_interval']:
+        if w['is_interval'] or w['is_prefocus']:
             continue
         mask = (t_centers >= w['t_start']) & (t_centers < w['t_end'])
         if not mask.any():
@@ -152,7 +165,7 @@ def plot_fi_timeline(edf_path,
 
     # --- bracket double-arrows spanning each task window (below axis) ---
     for w in windows:
-        if w['is_interval']:
+        if w['is_interval'] or w['is_prefocus']:
             continue
         x0 = w['t_start'] / 60
         x1 = w['t_end'] / 60
@@ -170,7 +183,7 @@ def plot_fi_timeline(edf_path,
 
     # --- task labels as a second row below the brackets ---
     for w in windows:
-        if w['is_interval']:
+        if w['is_interval'] or w['is_prefocus']:
             continue
         mid_min = (w['t_start'] + w['t_end']) / 2 / 60
         label_color = '#1f5fbf' if w['is_baseline'] else '#333333'
@@ -190,10 +203,11 @@ def plot_fi_timeline(edf_path,
 
     # --- legend with background patches ---
     legend_handles = [
-        mpatches.Patch(facecolor=_WIN_COLORS['baseline'],  label='Baseline (F0)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['task_odd'],  label='Task (odd)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['task_even'], label='Task (even)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['rest'],      label='60 s interval'),
+        mpatches.Patch(facecolor=_WIN_COLORS['baseline'],  label='Baseline (F0, 120s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['task_odd'],  label='Task (odd, 120s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['task_even'], label='Task (even, 120s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['rest'],      label='Rest (50s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['prefocus'],  label='Pre-focus (10s)'),
     ]
     line_handles, line_labels = ax.get_legend_handles_labels()
     keep = [h for h, l in zip(line_handles, line_labels)
@@ -203,8 +217,75 @@ def plot_fi_timeline(edf_path,
 
     ax.grid(True, alpha=0.2)
     ax.set_xlim(0, t_min[-1] + step_sec / 60)
+
+    # ── Statistics table (panel 2) ────────────────────────────────────────────
+    from scipy.stats import mannwhitneyu, norm
+
+    task_segs, rest_segs, pre_segs = [], [], []
+    for w in windows:
+        mask = (t_centers >= w['t_start']) & (t_centers < w['t_end'])
+        if not mask.any():
+            continue
+        seg = fi_avg[mask]
+        if w['is_prefocus']:
+            pre_segs.append(seg)
+        elif w['is_baseline'] or w['is_interval']:
+            rest_segs.append(seg)
+        else:
+            task_segs.append(seg)
+
+    def _mw(a_segs, b_segs):
+        a_vals = [float(np.mean(s)) for s in a_segs if len(s) > 0]
+        b_vals = [float(np.mean(s)) for s in b_segs if len(s) > 0]
+        out = {'a_mean': np.nanmean(a_vals) if a_vals else np.nan,
+               'a_std':  np.nanstd(a_vals)  if a_vals else np.nan,
+               'b_mean': np.nanmean(b_vals) if b_vals else np.nan,
+               'b_std':  np.nanstd(b_vals)  if b_vals else np.nan,
+               'U': np.nan, 'p': np.nan, 'sig': 'n/a', 'r': np.nan}
+        if len(a_vals) >= 2 and len(b_vals) >= 2:
+            try:
+                U, p = mannwhitneyu(a_vals, b_vals, alternative='two-sided')
+                z = abs(norm.ppf(p / 2)) if 0 < p < 1 else 0.0
+                out.update({'U': U, 'p': p,
+                            'sig': '***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else 'ns',
+                            'r': z / np.sqrt(len(a_vals) + len(b_vals))})
+            except Exception:
+                pass
+        return out
+
+    def _f(v, d=4): return f'{v:.{d}f}' if not np.isnan(v) else 'n/a'
+
+    comparisons = [
+        ('Task vs Rest',      _mw(task_segs, rest_segs)),
+        ('Task vs Pre-focus', _mw(task_segs, pre_segs)),
+        ('Rest vs Pre-focus', _mw(rest_segs, pre_segs)),
+    ]
+    rows = [[comp,
+             f"{_f(s['a_mean'])} ± {_f(s['a_std'])}",
+             f"{_f(s['b_mean'])} ± {_f(s['b_std'])}",
+             _f(s['U'], 0) if not np.isnan(s['U']) else 'n/a',
+             _f(s['p'])    if not np.isnan(s['p']) else 'n/a',
+             s['sig'],
+             _f(s['r'], 3) if not np.isnan(s['r']) else 'n/a']
+            for comp, s in comparisons]
+
+    ax_t = fig.add_subplot(gs[1])
+    ax_t.axis('off')
+    ax_t.set_title('FI (β/α) — Mann-Whitney U (two-sided)', fontsize=9, pad=4)
+    col_labels = ['Comparison', 'Group A mean ± SD', 'Group B mean ± SD', 'U', 'p-value', 'Sig.', 'Effect r']
+    tbl = ax_t.table(cellText=rows, colLabels=col_labels, loc='center', cellLoc='center')
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(9)
+    tbl.scale(1, 1.6)
+    for c in range(len(col_labels)):
+        tbl[0, c].set_text_props(fontweight='bold')
+    for ri, row in enumerate(rows, start=1):
+        cell = tbl[ri, 5]
+        if row[5] in ('*', '**', '***'): cell.set_facecolor('#d4edda')
+        elif row[5] == 'ns':             cell.set_facecolor('#f8d7da')
+
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.24)   # room for bracket arrows + task labels
+    plt.subplots_adjust(bottom=0.18)
 
     if save_path:
         plt.savefig(save_path, dpi=150)
@@ -217,13 +298,15 @@ def plot_fi_timeline(edf_path,
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    edf_path = "/Users/minhphan/Documents/Brain-Life/data/raw/edf/good/moon_24_16_14_F0-F1-F2-F3-F4-F5-F6-F7-F8-F9-F10-F11-F12.edf"
+    edf_path  = os.path.join(DATA_EDF_DIR, "moon_24_16_14_F0-F1-F2-F3-F4-F5-F6-F7-F8-F9-F10-F11-F12.edf")
+    save_path = os.path.join(GRAPH_EEG_DIR, "moon_24_16_14_eeg_fi.png")
+    os.makedirs(GRAPH_EEG_DIR, exist_ok=True)
 
     plot_fi_timeline(
         edf_path,
-        channels=('AF3', 'AF4'),
-        win_sec=5,
-        step_sec=1,
+        channels=EEG_CHANNELS,
+        win_sec=EEG_FI_WIN,
+        step_sec=EEG_FI_STEP,
         status='GOOD',
-        save_path=None,   # e.g. "../data/graph/my_FI_timeline.png"
+        save_path=save_path,
     )

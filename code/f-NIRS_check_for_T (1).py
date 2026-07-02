@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,6 +8,17 @@ from scipy import signal
 from intensity_filter import dwt_denoise_filter, hampel_filter
 import warnings
 warnings.filterwarnings("ignore")
+
+PLOT_OUTPUT_DIR = "fnirs_plots"
+
+
+def _save_or_show_fnirs_plot(output_path, show=False):
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"Saved plot: {output_path}")
+    if show:
+        plt.show()
+    plt.close()
 
 
 RED = '\033[91m'
@@ -213,6 +225,7 @@ def check_fNIRS_SCI(
     BL_csv_path,
     signal_range=None,
     plot=True,
+    show_plots=False,
     fs=100,
     col_red=" Header 27 Data",
     col_ir=" Header 28 Data",
@@ -245,6 +258,8 @@ def check_fNIRS_SCI(
     Quality check + OD + HbO/HbR computation for 2-wavelength wearable fNIRS.
 
     """
+    stem = os.path.splitext(os.path.basename(BL_csv_path))[0]
+
     df = pd.read_csv(BL_csv_path)
     df.columns = df.columns.str.strip()
     col_red = col_red.strip()
@@ -338,7 +353,9 @@ def check_fNIRS_SCI(
         plt.ylabel('Power/Frequency (dB/Hz)')
         plt.grid(True)
         plt.legend()
-        plt.show()
+        _save_or_show_fnirs_plot(
+            os.path.join(PLOT_OUTPUT_DIR, f"{stem}_psd.png"), show=show_plots
+        )
 
     # Calculate SNR
     snr_red = compute_snr(I1, fs, signal_band=hemo_band, noise_band=(hemo_band[1], None))
@@ -391,7 +408,9 @@ def check_fNIRS_SCI(
         plt.ylabel("Amplitude (a.u.)")
         plt.grid(True)
         plt.legend()
-        plt.show()
+        _save_or_show_fnirs_plot(
+            os.path.join(PLOT_OUTPUT_DIR, f"{stem}_sci.png"), show=show_plots
+        )
 
     # ---- 03) ΔOD computation (consistent) ----
     dOD1, base_slice = _compute_delta_od(I1, fs, baseline_skip_s, baseline_len_s, eps=eps)
@@ -447,7 +466,7 @@ def check_fNIRS_SCI(
         boundaries = np.linspace(0, n, num_segments + 1, dtype=int)
         segments = [(boundaries[i], boundaries[i + 1]) for i in range(num_segments)]
 
-        for (start, end) in segments:
+        for seg_idx, (start, end) in enumerate(segments):
             seg_t = t[start:end]
             seg_hb_corr = pearsonr(HbO[start:end], HbR[start:end])[0]
 
@@ -525,7 +544,10 @@ def check_fNIRS_SCI(
             plt.legend()
 
             plt.tight_layout()
-            plt.show()
+            _save_or_show_fnirs_plot(
+                os.path.join(PLOT_OUTPUT_DIR, f"{stem}_seg{seg_idx:02d}.png"),
+                show=show_plots,
+            )
 
     return {
         "fs": fs,
@@ -600,10 +622,10 @@ def compute_psp(x760, x850, fs, win_sec=10, l_freq=0.7, h_freq=1.5):
 
 
 if __name__ == "__main__":
-    file_path = "/Users/minhphan/Documents/Brain-Life/data/raw/csv/Moon_26_09_39_F0-F1-F9-F3-F5-F7-F11-F2-F8-F4-F6-F10-F12.csv"    
+    file_path = "/Users/minhphan/Documents/Brain-Life/data/raw/csv/Moon_26_09_39_F0-F1-F9-F3-F5-F7-F11-F2-F8-F4-F6-F10-F12.csv"
     check_fNIRS_SCI(
         file_path,
-        signal_range=None, 
+        signal_range=None,
         plot=True,
         use_hampel=False,
         hampel_window_sec=1.0,
