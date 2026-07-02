@@ -26,7 +26,7 @@ import re
 import sys
 import importlib.util
 from metadata import (
-    TASK_DUR, FNIRS_REST_DUR as REST_DUR, PREFOCUS_DUR,
+    TASK_DUR, REST_DUR, PREFOCUS_DUR,
     FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR,
     GRAPH_FNIRS_DIR,
 )

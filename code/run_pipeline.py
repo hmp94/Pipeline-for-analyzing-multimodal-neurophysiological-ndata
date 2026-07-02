@@ -416,8 +416,23 @@ def plot_combined_summary(
             fi_smooth = np.convolve(fi_avg, np.ones(k) / k, mode="same")
 
             _shade_timeline(ax3, windows, x_scale=1 / 60)
-            ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.5, label="FI = β/α",    zorder=3)
+            ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.6, label="FI = β/α",    zorder=3)
             ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6,            label="FI smoothed", zorder=4)
+
+            # per-task mean red line
+            first_mean = True
+            for w in windows:
+                if w["is_interval"] or w.get("is_prefocus"):
+                    continue
+                mask = (t_c >= w["t_start"]) & (t_c < w["t_end"])
+                if not mask.any():
+                    continue
+                mean_fi = fi_avg[mask].mean()
+                x0, x1 = w["t_start"] / 60, w["t_end"] / 60
+                ax3.hlines(mean_fi, x0, x1, colors="red", linewidths=2.0, zorder=5,
+                           label="Task mean FI" if first_mean else None)
+                first_mean = False
+
             ax3.set_xlim(0, t_min[-1])
             ax3.set_title(
                 f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9

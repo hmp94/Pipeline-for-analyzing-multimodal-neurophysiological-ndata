@@ -12,11 +12,10 @@ GRAPH_FNIRS_DIR = "/Users/minhphan/Documents/Brain-Life/graph/fnirs"
 GRAPH_EEG_DIR   = "/Users/minhphan/Documents/Brain-Life/graph/eeg"
 
 # ── Shared timeline ───────────────────────────────────────────────────────────
-TASK_DUR     = 120   # seconds — duration of each task/baseline block
+TASK_DUR     = 110   # seconds — duration of each task/baseline block
 PREFOCUS_DUR = 10    # seconds — pre-focus window after every break
 
-FNIRS_REST_DUR = 50  # seconds — rest period between blocks (fNIRS)
-EEG_REST_DUR   = 50  # seconds — rest period between blocks (EEG)
+REST_DUR = 60  # seconds — rest period between blocks (all signals)
 
 # ── fNIRS device ──────────────────────────────────────────────────────────────
 FNIRS_FS          = 100          # Hz

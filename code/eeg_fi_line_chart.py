@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 from scipy.signal import welch
 import pyedflib
 from metadata import (
-    TASK_DUR, EEG_REST_DUR as REST_DUR, PREFOCUS_DUR,
+    TASK_DUR, REST_DUR, PREFOCUS_DUR,
     EEG_FS, EEG_CHANNELS, EEG_ALPHA, EEG_BETA, EEG_FI_WIN, EEG_FI_STEP,
     DATA_EDF_DIR, GRAPH_EEG_DIR,
 )
