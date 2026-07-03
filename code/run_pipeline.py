@@ -459,9 +459,8 @@ def plot_combined_summary(
     # ── Panel 4: Statistics table ─────────────────────────────────────────────
     ax4 = fig.add_subplot(gs[3])
     ax4.axis("off")
-    ax4.text(0.5, 1.02, "Mann-Whitney U test (two-sided)",
-             transform=ax4.transAxes, ha="center", va="bottom",
-             fontsize=9, fontweight="bold")
+    ax4.set_title("Mann-Whitney U test (two-sided)",
+                  fontsize=9, fontweight="bold", pad=14)
 
     col_labels = ["Measure", "Group A mean ± SD", "Group B mean ± SD",
                   "U statistic", "p-value", "Sig.", "Effect r"]
@@ -576,8 +575,6 @@ def run_pipeline(
         # ── Step 1: EEG ──────────────────────────────────────────────────────
         _section("STEP 1 — EEG quality check + EDF export")
         try:
-            # convert_csv_to_edf processes a whole folder; isolate this file
-            # in a temporary directory so other files are not affected.
             tmp = tempfile.mkdtemp()
             shutil.copy2(csv_path, tmp)
             convert_csv_to_edf(tmp, edf_output_dir, eeg_sampling_rate, device=eeg_device)
@@ -596,7 +593,7 @@ def run_pipeline(
                 csv_path,
                 signal_range=fnirs_signal_range,
                 plot=fnirs_plot,
-                show_plots=fnirs_plot,
+                show_plots=False,
                 fs=fnirs_fs,
                 col_red=fnirs_col_red,
                 col_ir=fnirs_col_ir,
@@ -697,7 +694,7 @@ def _parse_args():
     p.add_argument("--no-plot",      action="store_true",    help="Suppress all matplotlib windows")
     p.add_argument("--fi-save",      default=None,           help="Dir to save FI plots (default: show)")
     p.add_argument("--summary-save", default="summary_plots", help="Dir to save combined summary PNGs")
-    p.add_argument("--show-summary", action="store_true",    help="Show combined summary plot interactively")
+    p.add_argument("--show-summary",   action="store_true", help="Show combined summary plot interactively")
     return p.parse_args()
 
 

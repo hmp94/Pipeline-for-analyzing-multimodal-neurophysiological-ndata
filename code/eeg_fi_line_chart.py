@@ -25,9 +25,10 @@ def build_windows(task_labels):
                             is_baseline=(i == 0), is_interval=False, is_prefocus=False))
         t += TASK_DUR
         if i < len(task_labels) - 1:
-            windows.append(dict(label='rest', t_start=t, t_end=t + REST_DUR,
-                                is_baseline=False, is_interval=True, is_prefocus=False))
-            t += REST_DUR
+            if i > 0:  # no REST after F0 (baseline)
+                windows.append(dict(label='rest', t_start=t, t_end=t + REST_DUR,
+                                    is_baseline=False, is_interval=True, is_prefocus=False))
+                t += REST_DUR
             windows.append(dict(label='pre-focus', t_start=t, t_end=t + PREFOCUS_DUR,
                                 is_baseline=False, is_interval=False, is_prefocus=True))
             t += PREFOCUS_DUR
@@ -203,11 +204,11 @@ def plot_fi_timeline(edf_path,
 
     # --- legend with background patches ---
     legend_handles = [
-        mpatches.Patch(facecolor=_WIN_COLORS['baseline'],  label='Baseline (F0, 120s)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['task_odd'],  label='Task (odd, 120s)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['task_even'], label='Task (even, 120s)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['rest'],      label='Rest (50s)'),
-        mpatches.Patch(facecolor=_WIN_COLORS['prefocus'],  label='Pre-focus (10s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['baseline'],  label=f'Baseline (F0, {TASK_DUR}s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['task_odd'],  label=f'Task ({TASK_DUR}s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['task_even'], label=f'Task ({TASK_DUR}s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['rest'],      label=f'Rest ({REST_DUR}s)'),
+        mpatches.Patch(facecolor=_WIN_COLORS['prefocus'],  label=f'Pre-focus ({PREFOCUS_DUR}s)'),
     ]
     line_handles, line_labels = ax.get_legend_handles_labels()
     keep = [h for h, l in zip(line_handles, line_labels)

@@ -94,7 +94,7 @@ def _build_windows(task_labels):
         cur += TASK_DUR
 
         if i < len(task_labels) - 1:
-            if REST_DUR > 0:
+            if i > 0 and REST_DUR > 0:  # no REST after F0 (baseline)
                 windows.append(dict(
                     label="rest", t_start=cur, t_end=cur + REST_DUR,
                     is_baseline=False, is_interval=True, is_prefocus=False,
