@@ -247,18 +247,25 @@ _WIN_COLORS = {
 }
 
 
-def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
+def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max=None):
     """Add coloured spans, double-headed bracket arrows, and labels for each task window.
 
     x_scale  : multiply window times (1.0 → seconds axis, 1/60 → minutes axis).
     arrow_y  : axes-fraction y for the <-> bracket arrow.
     label_y  : axes-fraction y for the task label (below the arrow).
+    x_max    : if set, skip annotations for windows that start at or beyond this x value.
     """
     import re
     tick_half = 0.018   # half-height of the end-cap ticks in axes fraction
 
     for w in windows:
         x0, x1 = w["t_start"] * x_scale, w["t_end"] * x_scale
+
+        # skip windows entirely beyond data range (prevents huge bbox expansion)
+        if x_max is not None and x0 >= x_max:
+            continue
+
+        x1_draw = min(x1, x_max) if x_max is not None else x1
 
         # ── background colour ──────────────────────────────────────────────
         if w["is_baseline"]:
@@ -270,7 +277,7 @@ def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
         else:
             num = int(re.search(r"\d+", w["label"]).group())
             color = _WIN_COLORS["task_odd"] if num % 2 == 1 else _WIN_COLORS["task_even"]
-        ax.axvspan(x0, x1, alpha=0.35, color=color, lw=0)
+        ax.axvspan(x0, x1_draw, alpha=0.35, color=color, lw=0)
 
         if w["is_interval"] or w.get("is_prefocus"):
             continue
@@ -279,14 +286,14 @@ def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
 
         # ── double-headed arrow spanning the window ────────────────────────
         ax.annotate(
-            "", xy=(x1, arrow_y), xytext=(x0, arrow_y),
+            "", xy=(x1_draw, arrow_y), xytext=(x0, arrow_y),
             xycoords=("data", "axes fraction"),
             arrowprops=dict(arrowstyle="<->", color=arrow_color, lw=1.1),
             annotation_clip=False,
         )
 
         # ── vertical end-cap ticks at x0 and x1 ───────────────────────────
-        for xc in (x0, x1):
+        for xc in (x0, x1_draw):
             ax.annotate(
                 "", xy=(xc, arrow_y - tick_half), xytext=(xc, arrow_y + tick_half),
                 xycoords=("data", "axes fraction"),
@@ -295,7 +302,7 @@ def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
             )
 
         # ── task label centred below the arrow ────────────────────────────
-        mid = (x0 + x1) / 2
+        mid = (x0 + x1_draw) / 2
         ax.annotate(
             w["label"],
             xy=(mid, label_y), xycoords=("data", "axes fraction"),
@@ -345,7 +352,7 @@ def plot_combined_summary(
         HbO = HbO[:session_end_samp]
         HbR = HbR[:session_end_samp]
         t    = np.arange(len(HbO)) / fs_f
-        _shade_timeline(ax1, windows, x_scale=1.0)
+        _shade_timeline(ax1, windows, x_scale=1.0, x_max=t[-1] if len(t) else 0)
         ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO", zorder=3)
         ax1.plot(t, HbR, color="blue", lw=0.9, label="HbR", zorder=3)
         sci     = fnirs_result.get("sci_r", float("nan"))
@@ -355,6 +362,12 @@ def plot_combined_summary(
             fontsize=9,
         )
         ax1.set_xlim(0, t[-1])
+        # ylim: 1st–99th percentile of HbO+HbR to avoid spike-driven auto-scale
+        _hb_all = np.concatenate([HbO[np.isfinite(HbO)], HbR[np.isfinite(HbR)]])
+        if len(_hb_all):
+            _p1, _p99 = np.percentile(_hb_all, [1, 99])
+            _pad_f = (_p99 - _p1) * 0.15 or 1e-7
+            ax1.set_ylim(_p1 - _pad_f, _p99 + _pad_f)
 
         # stats — paired t-test on raw individual samples
         hbo_tr, hbo_tp = _sig_pairs(HbO, fs_f, windows)
@@ -395,7 +408,7 @@ def plot_combined_summary(
         hr = (60 / (np.mean(np.diff(peaks)) / ppg_fs)) if len(peaks) > 1 else float("nan")
 
         t_ppg = np.arange(len(ppg_filt)) / ppg_fs
-        _shade_timeline(ax2, windows, x_scale=1.0)
+        _shade_timeline(ax2, windows, x_scale=1.0, x_max=t_ppg[-1] if len(t_ppg) else 0)
         ax2.plot(t_ppg, ppg_filt, color="darkgreen", lw=0.8, label="PPG filtered", zorder=3)
         if len(peaks):
             ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks", zorder=4)
@@ -433,7 +446,7 @@ def plot_combined_summary(
             k         = max(1, int(60 / fi_step_sec))
             fi_smooth = np.convolve(fi_avg, np.ones(k) / k, mode="same")
 
-            _shade_timeline(ax3, windows, x_scale=1 / 60)
+            _shade_timeline(ax3, windows, x_scale=1 / 60, x_max=t_min[-1] if len(t_min) else 0)
             ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.6, label="FI = β/α",    zorder=3)
             ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6,            label="FI smoothed", zorder=4)
 
@@ -451,7 +464,9 @@ def plot_combined_summary(
                            label="Task mean FI" if first_mean else None)
                 first_mean = False
 
-            ax3.set_xlim(0, t_min[-1])
+            ax3.set_xlim(0, t_min[-1] if len(t_min) else 0)
+            _fi_p99 = np.percentile(fi_avg[np.isfinite(fi_avg)], 99) if fi_avg.size else 1
+            ax3.set_ylim(bottom=0, top=max(_fi_p99 * 1.15, 1))
             ax3.set_title(
                 f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9
             )
@@ -572,6 +587,7 @@ def run_pipeline(
             for f in os.listdir(csv_input)
             if f.endswith(".csv")
             and not os.path.isdir(os.path.join(csv_input, f))
+            and "(" not in f
         )
     else:
         csv_files = [csv_input]
@@ -695,6 +711,7 @@ def run_pipeline(
             record["summary"] = f"error: {exc}"
 
         results.append(record)
+        plt.close("all")
 
     _print_summary(results)
     return results
