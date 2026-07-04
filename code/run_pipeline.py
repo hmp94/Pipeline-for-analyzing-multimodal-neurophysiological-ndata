@@ -51,7 +51,7 @@ if CODE_DIR not in sys.path:
 from metadata import (
     FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR,
     EEG_FS, EEG_CHANNELS, EEG_FI_WIN, EEG_FI_STEP,
-    GRAPH_FNIRS_DIR, GRAPH_EEG_DIR,
+    GRAPH_FNIRS_DIR, GRAPH_EEG_DIR, GRAPH_SUMMARY_DIR,
 )
 
 import argparse
@@ -104,6 +104,8 @@ plot_fi_timeline    = _fi_mod.plot_fi_timeline
 load_eeg_from_edf   = _fi_mod.load_eeg_from_edf
 compute_fi_timeline = _fi_mod.compute_fi_timeline
 
+from fnirs_analysis import filter_fnirs_outliers
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _section(title):
@@ -146,66 +148,93 @@ def _print_summary(results):
 
 
 # ── Statistical helpers ───────────────────────────────────────────────────────
-def _window_segments(signal, fs, windows):
-    """Split a 1-D signal into per-window segments → (task_segs, rest_segs, pre_segs)."""
-    task_segs, rest_segs, pre_segs = [], [], []
+from scipy.stats import ttest_rel
+
+
+def _paired_test(pairs):
+    """Paired t-test on all paired window values."""
+    if len(pairs) < 3:
+        return dict(a_mean=np.nan, a_std=np.nan, b_mean=np.nan, b_std=np.nan,
+                    stat=np.nan, p=np.nan, sig="n/a", test="n/a")
+    a = np.array([x for x, _ in pairs])
+    b = np.array([x for _, x in pairs])
+    stat, p = ttest_rel(a, b)
+    sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
+    return dict(a_mean=float(np.mean(a)), a_std=float(np.std(a)),
+                b_mean=float(np.mean(b)), b_std=float(np.std(b)),
+                stat=float(stat), p=float(p), sig=sig, test="paired-t")
+
+
+def _fmt_paired(label, r):
+    def _f(v, d=4): return f"{v:.{d}f}" if np.isfinite(v) else "n/a"
+    return [label,
+            f"{_f(r['a_mean'])} ± {_f(r['a_std'])}",
+            f"{_f(r['b_mean'])} ± {_f(r['b_std'])}",
+            _f(r['stat'], 3),
+            _f(r['p']), r['sig'], "—"]
+
+
+def _raw_pairs(a_vals, b_vals):
+    """Pair raw values tail-of-a with head-of-b (or head-of-a with tail-of-b for pre-focus)."""
+    n = min(len(a_vals), len(b_vals))
+    return list(zip(a_vals[-n:], b_vals[:n]))
+
+
+def _sig_pairs(signal, fs, windows):
+    """Pair raw individual samples, task↔rest and task↔pre-focus. Returns (tr_pairs, tp_pairs)."""
     n = len(signal)
-    for w in windows:
+
+    def _block_vals(w):
         s = max(0, int(w["t_start"] * fs))
         e = min(n, int(w["t_end"] * fs))
-        if e <= s:
-            continue
-        seg = signal[s:e]
-        if w.get("is_prefocus"):
-            pre_segs.append(seg)
-        elif w["is_baseline"] or w["is_interval"]:
-            rest_segs.append(seg)
-        else:
-            task_segs.append(seg)
-    return task_segs, rest_segs, pre_segs
+        return signal[s:e]
+
+    task_wins = [w for w in windows if not w["is_interval"] and not w.get("is_prefocus") and not w["is_baseline"]]
+    rest_wins = [w for w in windows if w["is_interval"]]
+    pre_wins  = [w for w in windows if w.get("is_prefocus")]
+
+    tr_pairs, tp_pairs = [], []
+    for tw in task_wins:
+        tvals = _block_vals(tw)
+        rw_cands = [rw for rw in rest_wins if rw["t_start"] >= tw["t_end"]]
+        if rw_cands:
+            rw = min(rw_cands, key=lambda r: r["t_start"])
+            tr_pairs.extend(_raw_pairs(tvals, _block_vals(rw)))
+        pw_cands = [pw for pw in pre_wins if pw["t_end"] <= tw["t_start"]]
+        if pw_cands:
+            pw = max(pw_cands, key=lambda p: p["t_end"])
+            pvals = _block_vals(pw)
+            n_p = min(len(tvals), len(pvals))
+            if n_p > 0:
+                tp_pairs.extend(zip(tvals[:n_p], pvals[-n_p:]))
+    return tr_pairs, tp_pairs
 
 
-def _fi_window_segments(t_centers, fi_avg, windows):
-    """Split FI time-series (t_centers in seconds) into (task_segs, rest_segs, pre_segs)."""
-    task_segs, rest_segs, pre_segs = [], [], []
-    for w in windows:
+def _fi_pairs(t_centers, fi_avg, windows):
+    """Pair individual FI values (1 s step), task↔rest and task↔pre-focus. Returns (tr_pairs, tp_pairs)."""
+    def _block_vals(w):
         mask = (t_centers >= w["t_start"]) & (t_centers < w["t_end"])
-        if not mask.any():
-            continue
-        seg = fi_avg[mask]
-        if w.get("is_prefocus"):
-            pre_segs.append(seg)
-        elif w["is_baseline"] or w["is_interval"]:
-            rest_segs.append(seg)
-        else:
-            task_segs.append(seg)
-    return task_segs, rest_segs, pre_segs
+        return fi_avg[mask]
 
+    task_wins = [w for w in windows if not w["is_interval"] and not w.get("is_prefocus") and not w["is_baseline"]]
+    rest_wins = [w for w in windows if w["is_interval"]]
+    pre_wins  = [w for w in windows if w.get("is_prefocus")]
 
-def _mw_test(a_segs, b_segs, reducer=np.mean):
-    """Per-window summary stat then Mann-Whitney U (two-sided)."""
-    from scipy.stats import mannwhitneyu, norm
-
-    a_vals = [float(reducer(s)) for s in a_segs if len(s) > 0]
-    b_vals = [float(reducer(s)) for s in b_segs if len(s) > 0]
-
-    out = {
-        "a_mean": np.nanmean(a_vals) if a_vals else np.nan,
-        "a_std":  np.nanstd(a_vals)  if a_vals else np.nan,
-        "b_mean": np.nanmean(b_vals) if b_vals else np.nan,
-        "b_std":  np.nanstd(b_vals)  if b_vals else np.nan,
-        "U": np.nan, "p": np.nan, "sig": "n/a", "r": np.nan,
-    }
-    if len(a_vals) >= 2 and len(b_vals) >= 2:
-        try:
-            U, p = mannwhitneyu(a_vals, b_vals, alternative="two-sided")
-            z = abs(norm.ppf(p / 2)) if 0 < p < 1 else 0.0
-            r = z / np.sqrt(len(a_vals) + len(b_vals))
-            sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
-            out.update({"U": U, "p": p, "sig": sig, "r": r})
-        except Exception:
-            pass
-    return out
+    tr_pairs, tp_pairs = [], []
+    for tw in task_wins:
+        tvals = _block_vals(tw)
+        rw_cands = [rw for rw in rest_wins if rw["t_start"] >= tw["t_end"]]
+        if rw_cands:
+            rw = min(rw_cands, key=lambda r: r["t_start"])
+            tr_pairs.extend(_raw_pairs(tvals, _block_vals(rw)))
+        pw_cands = [pw for pw in pre_wins if pw["t_end"] <= tw["t_start"]]
+        if pw_cands:
+            pw = max(pw_cands, key=lambda p: p["t_end"])
+            pvals = _block_vals(pw)
+            n_p = min(len(tvals), len(pvals))
+            if n_p > 0:
+                tp_pairs.extend(zip(tvals[:n_p], pvals[-n_p:]))
+    return tr_pairs, tp_pairs
 
 
 # ── Combined 3-panel summary plot ────────────────────────────────────────────
@@ -277,21 +306,6 @@ def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20):
         )
 
 
-def _fmt_row(label, s):
-    """Format one stats-dict into a table row list."""
-    def _f(v, decimals=4):
-        return f"{v:.{decimals}f}" if not np.isnan(v) else "n/a"
-    return [
-        label,
-        f"{_f(s['a_mean'])} ± {_f(s['a_std'])}",
-        f"{_f(s['b_mean'])} ± {_f(s['b_std'])}",
-        f"{_f(s['U'], 0)}" if not np.isnan(s["U"]) else "n/a",
-        f"{_f(s['p'], 4)}" if not np.isnan(s["p"]) else "n/a",
-        s["sig"],
-        f"{_f(s['r'], 3)}" if not np.isnan(s["r"]) else "n/a",
-    ]
-
-
 def plot_combined_summary(
     csv_path,
     fnirs_result,
@@ -326,6 +340,10 @@ def plot_combined_summary(
         HbO  = fnirs_result["HbO"]
         HbR  = fnirs_result["HbR"]
         fs_f = fnirs_result.get("fs", fnirs_fs)
+        # cap at session end so rogue trailing samples don't explode the figure
+        session_end_samp = int(windows[-1]["t_end"] * fs_f)
+        HbO = HbO[:session_end_samp]
+        HbR = HbR[:session_end_samp]
         t    = np.arange(len(HbO)) / fs_f
         _shade_timeline(ax1, windows, x_scale=1.0)
         ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO", zorder=3)
@@ -338,13 +356,13 @@ def plot_combined_summary(
         )
         ax1.set_xlim(0, t[-1])
 
-        # stats
-        hbo_t, hbo_r, hbo_p = _window_segments(HbO, fs_f, windows)
-        hbr_t, hbr_r, hbr_p = _window_segments(HbR, fs_f, windows)
-        stats_rows.append(_fmt_row("fNIRS HbO Task vs Rest",      _mw_test(hbo_t, hbo_r)))
-        stats_rows.append(_fmt_row("fNIRS HbO Task vs Pre-focus", _mw_test(hbo_t, hbo_p)))
-        stats_rows.append(_fmt_row("fNIRS HbR Task vs Rest",      _mw_test(hbr_t, hbr_r)))
-        stats_rows.append(_fmt_row("fNIRS HbR Task vs Pre-focus", _mw_test(hbr_t, hbr_p)))
+        # stats — paired t-test on raw individual samples
+        hbo_tr, hbo_tp = _sig_pairs(HbO, fs_f, windows)
+        hbr_tr, hbr_tp = _sig_pairs(HbR, fs_f, windows)
+        stats_rows.append(_fmt_paired("fNIRS HbO Task vs Rest",      _paired_test(hbo_tr)))
+        stats_rows.append(_fmt_paired("fNIRS HbO Task vs Pre-focus", _paired_test(hbo_tp)))
+        stats_rows.append(_fmt_paired("fNIRS HbR Task vs Rest",      _paired_test(hbr_tr)))
+        stats_rows.append(_fmt_paired("fNIRS HbR Task vs Pre-focus", _paired_test(hbr_tp)))
     else:
         ax1.text(0.5, 0.5, f"fNIRS unavailable:\n{fnirs_result}",
                  ha="center", va="center", transform=ax1.transAxes, fontsize=8)
@@ -389,10 +407,10 @@ def plot_combined_summary(
         ax2.set_xlim(0, t_ppg[-1])
         ax2.set_title(f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9)
 
-        # stats: use std per window as amplitude proxy (signal is zero-mean after filtering)
-        ppg_t, ppg_r, ppg_p = _window_segments(ppg_filt, ppg_fs, windows)
-        stats_rows.append(_fmt_row("PPG amplitude Task vs Rest",      _mw_test(ppg_t, ppg_r, reducer=np.std)))
-        stats_rows.append(_fmt_row("PPG amplitude Task vs Pre-focus", _mw_test(ppg_t, ppg_p, reducer=np.std)))
+        # stats — paired t-test on raw individual samples
+        ppg_tr, ppg_tp = _sig_pairs(ppg_filt, ppg_fs, windows)
+        stats_rows.append(_fmt_paired("PPG amplitude Task vs Rest",      _paired_test(ppg_tr)))
+        stats_rows.append(_fmt_paired("PPG amplitude Task vs Pre-focus", _paired_test(ppg_tp)))
     except Exception as exc:
         ax2.text(0.5, 0.5, f"PPG unavailable:\n{exc}",
                  ha="center", va="center", transform=ax2.transAxes, fontsize=8)
@@ -439,10 +457,10 @@ def plot_combined_summary(
             )
             ax3.set_xlabel("Time (min)", fontsize=8)
 
-            # stats
-            fi_t, fi_r, fi_p = _fi_window_segments(t_c, fi_avg, windows)
-            stats_rows.append(_fmt_row("EEG FI Task vs Rest",      _mw_test(fi_t, fi_r)))
-            stats_rows.append(_fmt_row("EEG FI Task vs Pre-focus", _mw_test(fi_t, fi_p)))
+            # EEG stats — paired t-test on individual FI values (1 s step)
+            tr_pairs, tp_pairs = _fi_pairs(t_c, fi_avg, windows)
+            stats_rows.append(_fmt_paired("EEG FI Task vs Rest",      _paired_test(tr_pairs)))
+            stats_rows.append(_fmt_paired("EEG FI Task vs Pre-focus", _paired_test(tp_pairs)))
         except Exception as exc:
             ax3.text(0.5, 0.5, f"FI error:\n{exc}",
                      ha="center", va="center", transform=ax3.transAxes, fontsize=8)
@@ -459,11 +477,11 @@ def plot_combined_summary(
     # ── Panel 4: Statistics table ─────────────────────────────────────────────
     ax4 = fig.add_subplot(gs[3])
     ax4.axis("off")
-    ax4.set_title("Mann-Whitney U test (two-sided)",
+    ax4.set_title("Paired t-test (individual data points, task vs adjacent rest / pre-focus)",
                   fontsize=9, fontweight="bold", pad=14)
 
     col_labels = ["Measure", "Group A mean ± SD", "Group B mean ± SD",
-                  "U statistic", "p-value", "Sig.", "Effect r"]
+                  "t statistic", "p-value", "Sig.", "Effect r"]
     if stats_rows:
         tbl = ax4.table(
             cellText=stats_rows,
@@ -539,7 +557,7 @@ def run_pipeline(
     fi_step_sec=EEG_FI_STEP,
     fi_save_dir=None,
     # Combined summary
-    summary_save_dir="summary_plots",
+    summary_save_dir=GRAPH_SUMMARY_DIR,
     show_summary=False,
 ):
     """Run all four pipeline steps on one CSV file or a folder of CSV files.
@@ -603,6 +621,13 @@ def run_pipeline(
         except Exception as exc:
             print(f"  [fNIRS ERROR] {exc}")
             record["fnirs"] = f"error: {exc}"
+
+        if isinstance(record.get("fnirs"), dict):
+            hbo_c, hbr_c = filter_fnirs_outliers(
+                record["fnirs"]["HbO"], record["fnirs"]["HbR"], n_sd=3
+            )
+            record["fnirs"]["HbO"] = hbo_c
+            record["fnirs"]["HbR"] = hbr_c
 
         # ── Step 3: PPG ──────────────────────────────────────────────────────
         _section("STEP 3 — PPG quality check")
@@ -693,7 +718,7 @@ def _parse_args():
     p.add_argument("--fnirs-dwt",    action="store_true",    help="DWT denoising on fNIRS intensity")
     p.add_argument("--no-plot",      action="store_true",    help="Suppress all matplotlib windows")
     p.add_argument("--fi-save",      default=None,           help="Dir to save FI plots (default: show)")
-    p.add_argument("--summary-save", default="summary_plots", help="Dir to save combined summary PNGs")
+    p.add_argument("--summary-save", default=GRAPH_SUMMARY_DIR, help="Dir to save combined summary PNGs")
     p.add_argument("--show-summary",   action="store_true", help="Show combined summary plot interactively")
     return p.parse_args()
 
