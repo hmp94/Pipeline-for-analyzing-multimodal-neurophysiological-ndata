@@ -8,8 +8,9 @@ import numpy as np
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_CSV_DIR    = "/Users/minhphan/Documents/Brain-Life/data/raw/csv"
 DATA_EDF_DIR    = "/Users/minhphan/Documents/Brain-Life/data/raw/edf/good"
-GRAPH_FNIRS_DIR = "/Users/minhphan/Documents/Brain-Life/graph/fnirs"
-GRAPH_EEG_DIR   = "/Users/minhphan/Documents/Brain-Life/graph/eeg"
+GRAPH_FNIRS_DIR   = "/Users/minhphan/Documents/Brain-Life/graph/fnirs"
+GRAPH_EEG_DIR     = "/Users/minhphan/Documents/Brain-Life/graph/eeg"
+GRAPH_SUMMARY_DIR = "/Users/minhphan/Documents/Brain-Life/graph/summary"
 
 # ── Shared timeline ───────────────────────────────────────────────────────────
 TASK_DUR     = 110   # seconds — duration of each task/baseline block
@@ -46,7 +47,7 @@ FNIRS_DWT_THRESHOLD     = 1.0
 
 # ── EEG device ────────────────────────────────────────────────────────────────
 EEG_FS        = 244              # Hz
-EEG_CHANNELS  = ("AF3", "AF4")   # channels used for FI computation
+EEG_CHANNELS  = ("AF3_processed", "AF4_processed")   # channels used for FI computation
 EEG_ALPHA     = (8,  13)         # Hz — alpha band
 EEG_BETA      = (13, 30)         # Hz — beta band
 EEG_FI_WIN    = 5                # seconds — sliding window for FI
