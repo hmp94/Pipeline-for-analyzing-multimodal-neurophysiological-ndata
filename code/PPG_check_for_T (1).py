@@ -130,7 +130,7 @@ def bandpower(data, fs, band, window_sec=4):
     if not np.any(idx_band):
         return 0.0
 
-    return np.trapezoid(psd[idx_band], freqs[idx_band])
+    return np.trapz(psd[idx_band], freqs[idx_band])
 
 
 def calculate_snr_bandpower(

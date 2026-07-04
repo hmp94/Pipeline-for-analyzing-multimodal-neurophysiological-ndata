@@ -40,27 +40,6 @@ import numpy as np
 from scipy.stats import mannwhitneyu, norm
 
 
-# ── fNIRS outlier filter ─────────────────────────────────────────────────────
-def filter_fnirs_outliers(hbo, hbr, n_sd=3):
-    """Replace samples outside mean ± n_sd*SD with NaN, then linearly interpolate.
-
-    Applied independently to HbO and HbR so each channel uses its own statistics.
-    Returns (hbo_clean, hbr_clean) as float64 arrays of the same length.
-    """
-    def _clean(sig):
-        sig = np.array(sig, dtype=np.float64)
-        mean, sd = np.nanmean(sig), np.nanstd(sig)
-        sig[np.abs(sig - mean) > n_sd * sd] = np.nan
-        # linear interpolation over NaN gaps
-        nans = np.isnan(sig)
-        if nans.any():
-            idx = np.arange(len(sig))
-            sig[nans] = np.interp(idx[nans], idx[~nans], sig[~nans])
-        return sig
-
-    return _clean(hbo), _clean(hbr)
-
-
 # ── Dynamic imports (filenames contain spaces) ────────────────────────────────
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 if CODE_DIR not in sys.path:

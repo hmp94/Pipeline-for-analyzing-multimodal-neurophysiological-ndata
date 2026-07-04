@@ -135,7 +135,7 @@ def bandpower_welch(x, fs, f_lo, f_hi, nperseg=None):
     idx = (freqs >= f_lo) & (freqs <= f_hi)
     if not np.any(idx):
         return 0.0
-    return np.trapezoid(psd[idx], freqs[idx])
+    return np.trapz(psd[idx], freqs[idx])
 
 
 def check_band_frequency_noise(

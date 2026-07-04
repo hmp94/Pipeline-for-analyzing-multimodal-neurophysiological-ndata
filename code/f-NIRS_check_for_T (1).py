@@ -67,7 +67,7 @@ def _bandpower_from_psd(f, Pxx, band):
         mask = (f >= low) & (f <= high)
     if not np.any(mask):
         return 0.0
-    return float(np.trapezoid(Pxx[mask], f[mask]))
+    return float(np.trapz(Pxx[mask], f[mask]))
 
 
 def compute_snr(x, fs, signal_band=(0.01, 0.5), noise_band=(0.5, None), nperseg=1024):

@@ -41,7 +41,7 @@ def get_timeline(edf_path):
 def bandpower(x, fs, lo, hi, nperseg):
     f, Pxx = welch(x, fs=fs, nperseg=nperseg)
     mask = (f >= lo) & (f <= hi)
-    return float(np.trapezoid(Pxx[mask], f[mask])) if mask.any() else 1e-12
+    return float(np.trapz(Pxx[mask], f[mask])) if mask.any() else 1e-12
 
 def compute_fi(x, fs, nperseg):
     """Focus Index = β / α"""
