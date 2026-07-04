@@ -147,6 +147,21 @@ def _print_summary(results):
     print()
 
 
+# ── Signal helpers ────────────────────────────────────────────────────────────
+def _filter_outliers(signal, n_sd=3):
+    """Replace samples outside mean±n_sd*std with NaN then linearly interpolate."""
+    s = np.array(signal, dtype=float)
+    mean, std = np.nanmean(s), np.nanstd(s)
+    if std == 0:
+        return s
+    s[np.abs(s - mean) > n_sd * std] = np.nan
+    nans = np.isnan(s)
+    if nans.any() and not nans.all():
+        idx = np.arange(len(s))
+        s[nans] = np.interp(idx[nans], idx[~nans], s[~nans])
+    return s
+
+
 # ── Statistical helpers ───────────────────────────────────────────────────────
 from scipy.stats import ttest_rel
 
@@ -160,9 +175,11 @@ def _paired_test(pairs):
     b = np.array([x for _, x in pairs])
     stat, p = ttest_rel(a, b)
     sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
+    df = len(pairs) - 1
+    r_effect = float(abs(stat) / np.sqrt(stat**2 + df)) if df > 0 else np.nan
     return dict(a_mean=float(np.mean(a)), a_std=float(np.std(a)),
                 b_mean=float(np.mean(b)), b_std=float(np.std(b)),
-                stat=float(stat), p=float(p), sig=sig, test="paired-t")
+                stat=float(stat), p=float(p), sig=sig, test="paired-t", r=r_effect)
 
 
 def _fmt_paired(label, r):
@@ -171,7 +188,7 @@ def _fmt_paired(label, r):
             f"{_f(r['a_mean'])} ± {_f(r['a_std'])}",
             f"{_f(r['b_mean'])} ± {_f(r['b_std'])}",
             _f(r['stat'], 3),
-            _f(r['p']), r['sig'], "—"]
+            _f(r['p']), r['sig'], _f(r.get('r', float('nan')), 3)]
 
 
 def _raw_pairs(a_vals, b_vals):
@@ -362,12 +379,7 @@ def plot_combined_summary(
             fontsize=9,
         )
         ax1.set_xlim(0, t[-1])
-        # ylim: 1st–99th percentile of HbO+HbR to avoid spike-driven auto-scale
-        _hb_all = np.concatenate([HbO[np.isfinite(HbO)], HbR[np.isfinite(HbR)]])
-        if len(_hb_all):
-            _p1, _p99 = np.percentile(_hb_all, [1, 99])
-            _pad_f = (_p99 - _p1) * 0.15 or 1e-7
-            ax1.set_ylim(_p1 - _pad_f, _p99 + _pad_f)
+        ax1.set_ylim(-5e-6, 5e-6)
 
         # stats — paired t-test on raw individual samples
         hbo_tr, hbo_tp = _sig_pairs(HbO, fs_f, windows)
@@ -402,6 +414,7 @@ def plot_combined_summary(
         ppg_raw  = ppg_raw[max(0, ppg_first_samples_to_ignore):]
         ppg_raw  = _ppg_mod.fill_missing(ppg_raw)
         ppg_filt = _ppg_mod.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
+        ppg_filt = _filter_outliers(ppg_filt, n_sd=3)
 
         skip = min(5 * ppg_fs, len(ppg_filt) // 2)
         peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
@@ -413,10 +426,7 @@ def plot_combined_summary(
         if len(peaks):
             ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks", zorder=4)
 
-        if skip < len(ppg_filt):
-            sig_clip = ppg_filt[skip:]
-            pad = (sig_clip.max() - sig_clip.min()) * 0.15 or 1
-            ax2.set_ylim(sig_clip.min() - pad, sig_clip.max() + pad)
+        ax2.set_ylim(-1100, 1100)
         ax2.set_xlim(0, t_ppg[-1])
         ax2.set_title(f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9)
 
@@ -440,7 +450,7 @@ def plot_combined_summary(
         try:
             data, _, fs_e = load_eeg_from_edf(edf_path, fi_channels)
             t_c, fi       = compute_fi_timeline(data, fs_e, win_sec=fi_win_sec, step_sec=fi_step_sec)
-            fi_avg        = fi.mean(axis=0)
+            fi_avg        = _filter_outliers(fi.mean(axis=0), n_sd=3)
             t_min         = t_c / 60
 
             k         = max(1, int(60 / fi_step_sec))
@@ -450,7 +460,7 @@ def plot_combined_summary(
             ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.6, label="FI = β/α",    zorder=3)
             ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6,            label="FI smoothed", zorder=4)
 
-            # per-task mean red line
+            # mean line + I-bar (±1 SD) per task block
             first_mean = True
             for w in windows:
                 if w["is_interval"] or w.get("is_prefocus"):
@@ -458,15 +468,16 @@ def plot_combined_summary(
                 mask = (t_c >= w["t_start"]) & (t_c < w["t_end"])
                 if not mask.any():
                     continue
-                mean_fi = fi_avg[mask].mean()
+                m_fi  = fi_avg[mask].mean()
+                sd_fi = fi_avg[mask].std()
                 x0, x1 = w["t_start"] / 60, w["t_end"] / 60
-                ax3.hlines(mean_fi, x0, x1, colors="red", linewidths=2.0, zorder=5,
-                           label="Task mean FI" if first_mean else None)
+                ax3.errorbar((x0 + x1) / 2, m_fi, yerr=sd_fi, fmt="ko", ms=4, color="black",
+                             capsize=5, capthick=1.5, elinewidth=1.5, zorder=6,
+                             label="Task mean ± SD" if first_mean else None)
                 first_mean = False
 
             ax3.set_xlim(0, t_min[-1] if len(t_min) else 0)
-            _fi_p99 = np.percentile(fi_avg[np.isfinite(fi_avg)], 99) if fi_avg.size else 1
-            ax3.set_ylim(bottom=0, top=max(_fi_p99 * 1.15, 1))
+            ax3.set_ylim(0, 10)
             ax3.set_title(
                 f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9
             )
