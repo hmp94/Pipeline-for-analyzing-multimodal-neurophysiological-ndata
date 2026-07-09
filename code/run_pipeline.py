@@ -53,6 +53,10 @@ from metadata import (
     EEG_FS, EEG_CHANNELS, EEG_FI_WIN, EEG_FI_STEP,
     GRAPH_FNIRS_DIR, GRAPH_EEG_DIR, GRAPH_SUMMARY_DIR,
 )
+from utils import (
+    get_timeline, filter_outliers, paired_test, raw_pairs, sig_pairs, fi_pairs,
+    rmssd_windows, fmt_paired, shade_timeline, WIN_COLORS,
+)
 
 import argparse
 import importlib.util
@@ -107,7 +111,7 @@ compute_fi_timeline = _fi_mod.compute_fi_timeline
 from fnirs_analysis import filter_fnirs_outliers
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Orchestration helpers ─────────────────────────────────────────────────────
 def _section(title):
     pad = max(0, 55 - len(title))
     print(f"\n── {title} {'─' * pad}")
@@ -146,188 +150,6 @@ def _print_summary(results):
         print(f"    Summary : {r.get('summary', 'skipped')}")
     print()
 
-
-# ── Signal helpers ────────────────────────────────────────────────────────────
-def _filter_outliers(signal, n_sd=3):
-    """Replace samples outside mean±n_sd*std with NaN then linearly interpolate."""
-    s = np.array(signal, dtype=float)
-    mean, std = np.nanmean(s), np.nanstd(s)
-    if std == 0:
-        return s
-    s[np.abs(s - mean) > n_sd * std] = np.nan
-    nans = np.isnan(s)
-    if nans.any() and not nans.all():
-        idx = np.arange(len(s))
-        s[nans] = np.interp(idx[nans], idx[~nans], s[~nans])
-    return s
-
-
-# ── Statistical helpers ───────────────────────────────────────────────────────
-from scipy.stats import ttest_rel
-
-
-def _paired_test(pairs):
-    """Paired t-test on all paired window values."""
-    if len(pairs) < 3:
-        return dict(a_mean=np.nan, a_std=np.nan, b_mean=np.nan, b_std=np.nan,
-                    stat=np.nan, p=np.nan, sig="n/a", test="n/a")
-    a = np.array([x for x, _ in pairs])
-    b = np.array([x for _, x in pairs])
-    stat, p = ttest_rel(a, b)
-    sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
-    df = len(pairs) - 1
-    r_effect = float(abs(stat) / np.sqrt(stat**2 + df)) if df > 0 else np.nan
-    return dict(a_mean=float(np.mean(a)), a_std=float(np.std(a)),
-                b_mean=float(np.mean(b)), b_std=float(np.std(b)),
-                stat=float(stat), p=float(p), sig=sig, test="paired-t", r=r_effect)
-
-
-def _fmt_paired(label, r):
-    def _f(v, d=4): return f"{v:.{d}f}" if np.isfinite(v) else "n/a"
-    return [label,
-            f"{_f(r['a_mean'])} ± {_f(r['a_std'])}",
-            f"{_f(r['b_mean'])} ± {_f(r['b_std'])}",
-            _f(r['stat'], 3),
-            _f(r['p']), r['sig'], _f(r.get('r', float('nan')), 3)]
-
-
-def _raw_pairs(a_vals, b_vals):
-    """Pair raw values tail-of-a with head-of-b (or head-of-a with tail-of-b for pre-focus)."""
-    n = min(len(a_vals), len(b_vals))
-    return list(zip(a_vals[-n:], b_vals[:n]))
-
-
-def _sig_pairs(signal, fs, windows):
-    """Pair raw individual samples, task↔rest and task↔pre-focus. Returns (tr_pairs, tp_pairs)."""
-    n = len(signal)
-
-    def _block_vals(w):
-        s = max(0, int(w["t_start"] * fs))
-        e = min(n, int(w["t_end"] * fs))
-        return signal[s:e]
-
-    task_wins = [w for w in windows if not w["is_interval"] and not w.get("is_prefocus") and not w["is_baseline"]]
-    rest_wins = [w for w in windows if w["is_interval"]]
-    pre_wins  = [w for w in windows if w.get("is_prefocus")]
-
-    tr_pairs, tp_pairs = [], []
-    for tw in task_wins:
-        tvals = _block_vals(tw)
-        rw_cands = [rw for rw in rest_wins if rw["t_start"] >= tw["t_end"]]
-        if rw_cands:
-            rw = min(rw_cands, key=lambda r: r["t_start"])
-            tr_pairs.extend(_raw_pairs(tvals, _block_vals(rw)))
-        pw_cands = [pw for pw in pre_wins if pw["t_end"] <= tw["t_start"]]
-        if pw_cands:
-            pw = max(pw_cands, key=lambda p: p["t_end"])
-            pvals = _block_vals(pw)
-            n_p = min(len(tvals), len(pvals))
-            if n_p > 0:
-                tp_pairs.extend(zip(tvals[:n_p], pvals[-n_p:]))
-    return tr_pairs, tp_pairs
-
-
-def _fi_pairs(t_centers, fi_avg, windows):
-    """Pair individual FI values (1 s step), task↔rest and task↔pre-focus. Returns (tr_pairs, tp_pairs)."""
-    def _block_vals(w):
-        mask = (t_centers >= w["t_start"]) & (t_centers < w["t_end"])
-        return fi_avg[mask]
-
-    task_wins = [w for w in windows if not w["is_interval"] and not w.get("is_prefocus") and not w["is_baseline"]]
-    rest_wins = [w for w in windows if w["is_interval"]]
-    pre_wins  = [w for w in windows if w.get("is_prefocus")]
-
-    tr_pairs, tp_pairs = [], []
-    for tw in task_wins:
-        tvals = _block_vals(tw)
-        rw_cands = [rw for rw in rest_wins if rw["t_start"] >= tw["t_end"]]
-        if rw_cands:
-            rw = min(rw_cands, key=lambda r: r["t_start"])
-            tr_pairs.extend(_raw_pairs(tvals, _block_vals(rw)))
-        pw_cands = [pw for pw in pre_wins if pw["t_end"] <= tw["t_start"]]
-        if pw_cands:
-            pw = max(pw_cands, key=lambda p: p["t_end"])
-            pvals = _block_vals(pw)
-            n_p = min(len(tvals), len(pvals))
-            if n_p > 0:
-                tp_pairs.extend(zip(tvals[:n_p], pvals[-n_p:]))
-    return tr_pairs, tp_pairs
-
-
-# ── Combined 3-panel summary plot ────────────────────────────────────────────
-_WIN_COLORS = {
-    "baseline":  "#7ab8e8",
-    "task_odd":  "#72c472",
-    "task_even": "#72c472",
-    "rest":      "#b0b0b0",
-    "prefocus":  "#f5d76e",
-}
-
-
-def _shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max=None):
-    """Add coloured spans, double-headed bracket arrows, and labels for each task window.
-
-    x_scale  : multiply window times (1.0 → seconds axis, 1/60 → minutes axis).
-    arrow_y  : axes-fraction y for the <-> bracket arrow.
-    label_y  : axes-fraction y for the task label (below the arrow).
-    x_max    : if set, skip annotations for windows that start at or beyond this x value.
-    """
-    import re
-    tick_half = 0.018   # half-height of the end-cap ticks in axes fraction
-
-    for w in windows:
-        x0, x1 = w["t_start"] * x_scale, w["t_end"] * x_scale
-
-        # skip windows entirely beyond data range (prevents huge bbox expansion)
-        if x_max is not None and x0 >= x_max:
-            continue
-
-        x1_draw = min(x1, x_max) if x_max is not None else x1
-
-        # ── background colour ──────────────────────────────────────────────
-        if w["is_baseline"]:
-            color = _WIN_COLORS["baseline"]
-        elif w["is_interval"]:
-            color = _WIN_COLORS["rest"]
-        elif w.get("is_prefocus"):
-            color = _WIN_COLORS["prefocus"]
-        else:
-            num = int(re.search(r"\d+", w["label"]).group())
-            color = _WIN_COLORS["task_odd"] if num % 2 == 1 else _WIN_COLORS["task_even"]
-        ax.axvspan(x0, x1_draw, alpha=0.35, color=color, lw=0)
-
-        if w["is_interval"] or w.get("is_prefocus"):
-            continue
-
-        arrow_color = "#1f5fbf" if w["is_baseline"] else "#555555"
-
-        # ── double-headed arrow spanning the window ────────────────────────
-        ax.annotate(
-            "", xy=(x1_draw, arrow_y), xytext=(x0, arrow_y),
-            xycoords=("data", "axes fraction"),
-            arrowprops=dict(arrowstyle="<->", color=arrow_color, lw=1.1),
-            annotation_clip=False,
-        )
-
-        # ── vertical end-cap ticks at x0 and x1 ───────────────────────────
-        for xc in (x0, x1_draw):
-            ax.annotate(
-                "", xy=(xc, arrow_y - tick_half), xytext=(xc, arrow_y + tick_half),
-                xycoords=("data", "axes fraction"),
-                arrowprops=dict(arrowstyle="-", color=arrow_color, lw=1.1),
-                annotation_clip=False,
-            )
-
-        # ── task label centred below the arrow ────────────────────────────
-        mid = (x0 + x1_draw) / 2
-        ax.annotate(
-            w["label"],
-            xy=(mid, label_y), xycoords=("data", "axes fraction"),
-            ha="center", va="top", fontsize=6.5,
-            color=arrow_color,
-            fontweight="bold" if w["is_baseline"] else "normal",
-            annotation_clip=False,
-        )
 
 
 def plot_combined_summary(
@@ -369,7 +191,7 @@ def plot_combined_summary(
         HbO = HbO[:session_end_samp]
         HbR = HbR[:session_end_samp]
         t    = np.arange(len(HbO)) / fs_f
-        _shade_timeline(ax1, windows, x_scale=1.0, x_max=t[-1] if len(t) else 0)
+        shade_timeline(ax1, windows, x_scale=1.0, x_max=t[-1] if len(t) else 0)
         ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO", zorder=3)
         ax1.plot(t, HbR, color="blue", lw=0.9, label="HbR", zorder=3)
         sci     = fnirs_result.get("sci_r", float("nan"))
@@ -381,13 +203,11 @@ def plot_combined_summary(
         ax1.set_xlim(0, t[-1])
         ax1.set_ylim(-5e-6, 5e-6)
 
-        # stats — paired t-test on raw individual samples
-        hbo_tr, hbo_tp = _sig_pairs(HbO, fs_f, windows)
-        hbr_tr, hbr_tp = _sig_pairs(HbR, fs_f, windows)
-        stats_rows.append(_fmt_paired("fNIRS HbO Task vs Rest",      _paired_test(hbo_tr)))
-        stats_rows.append(_fmt_paired("fNIRS HbO Task vs Pre-focus", _paired_test(hbo_tp)))
-        stats_rows.append(_fmt_paired("fNIRS HbR Task vs Rest",      _paired_test(hbr_tr)))
-        stats_rows.append(_fmt_paired("fNIRS HbR Task vs Pre-focus", _paired_test(hbr_tp)))
+        # stats — paired t-test, task vs rest only
+        hbo_tr = sig_pairs(HbO, fs_f, windows)
+        hbr_tr = sig_pairs(HbR, fs_f, windows)
+        stats_rows.append(fmt_paired("fNIRS HbO Task vs Rest", paired_test(hbo_tr)))
+        stats_rows.append(fmt_paired("fNIRS HbR Task vs Rest", paired_test(hbr_tr)))
     else:
         ax1.text(0.5, 0.5, f"fNIRS unavailable:\n{fnirs_result}",
                  ha="center", va="center", transform=ax1.transAxes, fontsize=8)
@@ -414,14 +234,13 @@ def plot_combined_summary(
         ppg_raw  = ppg_raw[max(0, ppg_first_samples_to_ignore):]
         ppg_raw  = _ppg_mod.fill_missing(ppg_raw)
         ppg_filt = _ppg_mod.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
-        ppg_filt = _filter_outliers(ppg_filt, n_sd=3)
+        ppg_filt = filter_outliers(ppg_filt, n_sd=3)
 
-        skip = min(5 * ppg_fs, len(ppg_filt) // 2)
         peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
         hr = (60 / (np.mean(np.diff(peaks)) / ppg_fs)) if len(peaks) > 1 else float("nan")
 
         t_ppg = np.arange(len(ppg_filt)) / ppg_fs
-        _shade_timeline(ax2, windows, x_scale=1.0, x_max=t_ppg[-1] if len(t_ppg) else 0)
+        shade_timeline(ax2, windows, x_scale=1.0, x_max=t_ppg[-1] if len(t_ppg) else 0)
         ax2.plot(t_ppg, ppg_filt, color="darkgreen", lw=0.8, label="PPG filtered", zorder=3)
         if len(peaks):
             ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks", zorder=4)
@@ -430,10 +249,9 @@ def plot_combined_summary(
         ax2.set_xlim(0, t_ppg[-1])
         ax2.set_title(f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9)
 
-        # stats — paired t-test on raw individual samples
-        ppg_tr, ppg_tp = _sig_pairs(ppg_filt, ppg_fs, windows)
-        stats_rows.append(_fmt_paired("PPG amplitude Task vs Rest",      _paired_test(ppg_tr)))
-        stats_rows.append(_fmt_paired("PPG amplitude Task vs Pre-focus", _paired_test(ppg_tp)))
+        # stats — RMSSD per window, task vs rest
+        rmssd_p = rmssd_windows(peaks, ppg_fs, windows)
+        stats_rows.append(fmt_paired("PPG RMSSD Task vs Rest (ms)", paired_test(rmssd_p)))
     except Exception as exc:
         ax2.text(0.5, 0.5, f"PPG unavailable:\n{exc}",
                  ha="center", va="center", transform=ax2.transAxes, fontsize=8)
@@ -450,13 +268,13 @@ def plot_combined_summary(
         try:
             data, _, fs_e = load_eeg_from_edf(edf_path, fi_channels)
             t_c, fi       = compute_fi_timeline(data, fs_e, win_sec=fi_win_sec, step_sec=fi_step_sec)
-            fi_avg        = _filter_outliers(fi.mean(axis=0), n_sd=3)
+            fi_avg        = filter_outliers(fi.mean(axis=0), n_sd=3)
             t_min         = t_c / 60
 
             k         = max(1, int(60 / fi_step_sec))
             fi_smooth = np.convolve(fi_avg, np.ones(k) / k, mode="same")
 
-            _shade_timeline(ax3, windows, x_scale=1 / 60, x_max=t_min[-1] if len(t_min) else 0)
+            shade_timeline(ax3, windows, x_scale=1 / 60, x_max=t_min[-1] if len(t_min) else 0)
             ax3.plot(t_min, fi_avg,    color="#b3a2cc", lw=0.6, alpha=0.6, label="FI = β/α",    zorder=3)
             ax3.plot(t_min, fi_smooth, color="#4a2a6a", lw=1.6,            label="FI smoothed", zorder=4)
 
@@ -484,9 +302,8 @@ def plot_combined_summary(
             ax3.set_xlabel("Time (min)", fontsize=8)
 
             # EEG stats — paired t-test on individual FI values (1 s step)
-            tr_pairs, tp_pairs = _fi_pairs(t_c, fi_avg, windows)
-            stats_rows.append(_fmt_paired("EEG FI Task vs Rest",      _paired_test(tr_pairs)))
-            stats_rows.append(_fmt_paired("EEG FI Task vs Pre-focus", _paired_test(tp_pairs)))
+            tr_pairs = fi_pairs(t_c, fi_avg, windows)
+            stats_rows.append(fmt_paired("EEG FI Task vs Rest", paired_test(tr_pairs)))
         except Exception as exc:
             ax3.text(0.5, 0.5, f"FI error:\n{exc}",
                      ha="center", va="center", transform=ax3.transAxes, fontsize=8)
@@ -503,7 +320,7 @@ def plot_combined_summary(
     # ── Panel 4: Statistics table ─────────────────────────────────────────────
     ax4 = fig.add_subplot(gs[3])
     ax4.axis("off")
-    ax4.set_title("Paired t-test (individual data points, task vs adjacent rest / pre-focus)",
+    ax4.set_title("Paired t-test — task vs adjacent rest  (fNIRS/EEG: raw samples; PPG: RMSSD per window)",
                   fontsize=9, fontweight="bold", pad=14)
 
     col_labels = ["Measure", "Group A mean ± SD", "Group B mean ± SD",
@@ -538,10 +355,10 @@ def plot_combined_summary(
     # ── Legend for window colours ─────────────────────────────────────────────
     import matplotlib.patches as mpatches
     patch_handles = [
-        mpatches.Patch(facecolor=_WIN_COLORS["baseline"],  alpha=0.5, label="Baseline (F0, 120s)"),
-        mpatches.Patch(facecolor=_WIN_COLORS["task_odd"],  alpha=0.5, label="Task (120s)"),
-        mpatches.Patch(facecolor=_WIN_COLORS["rest"],      alpha=0.5, label="Rest (50s)"),
-        mpatches.Patch(facecolor=_WIN_COLORS["prefocus"],  alpha=0.5, label="Pre-focus (10s)"),
+        mpatches.Patch(facecolor=WIN_COLORS["baseline"],  alpha=0.5, label="Baseline (F0, 120s)"),
+        mpatches.Patch(facecolor=WIN_COLORS["task_odd"],  alpha=0.5, label="Task (120s)"),
+        mpatches.Patch(facecolor=WIN_COLORS["rest"],      alpha=0.5, label="Rest (50s)"),
+        mpatches.Patch(facecolor=WIN_COLORS["prefocus"],  alpha=0.5, label="Pre-focus (10s)"),
     ]
     fig.legend(handles=patch_handles, loc="lower center", ncol=4,
                fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.005))
