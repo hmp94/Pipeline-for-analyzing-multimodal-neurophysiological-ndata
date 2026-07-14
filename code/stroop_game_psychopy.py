@@ -3,11 +3,14 @@ Stroop task (PsychoPy).
 
 Output:  ./results/"Game Result - <participant> Stroop A.csv"
          trial_number, stimulus, word, color, response, reaction_time, correct
+         ./results/"Game Result - <participant> Stroop A info.json"  (demographics)
 
 Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          Keys are accepted only after the word disappears.
          Respond to the INK COLOUR: C = blue/green, M = red/yellow.
          reaction_time is ms from stimulus OFFSET; a timeout logs 2000.
+         The startup dialog collects demographics only; trial count and
+         timings come from settings.json.
 
 Run:     python stroop_game_psychopy.py     (ESC aborts a block; partial data is saved)
 """
@@ -17,6 +20,7 @@ import sys
 import csv
 import json
 import random
+from datetime import datetime
 
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
@@ -30,11 +34,6 @@ REF_H = 1080.0  # font sizes in settings are pixels for a 1080px-tall screen
 def h(px):
     """Pixel size -> 'height' units."""
     return px / REF_H
-
-
-def aspect(win):
-    """Window width / height."""
-    return win.size[0] / win.size[1]
 
 
 # --------------------------------------------------------------------------- #
@@ -162,6 +161,24 @@ def write_results_csv(trial_results, participant_name="anonymous", results_dir_n
         print(f"Failed to write results CSV: {e}")
 
 
+def write_participant_info(demographics, participant_name="anonymous", task_label="Stroop A",
+                           results_dir_name="results"):
+    """Write the demographics entered at startup next to the results CSV."""
+    try:
+        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
+        results_dir = os.path.join(base_dir, results_dir_name)
+        os.makedirs(results_dir, exist_ok=True)
+
+        filepath = os.path.join(results_dir, f"Game Result - {participant_name} {task_label} info.json")
+        payload = {"task": task_label, "saved_at": datetime.now().isoformat(timespec="seconds"),
+                   **(demographics or {})}
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        print(f"Saved: {filepath}")
+    except Exception as e:
+        print(f"Failed to write participant info: {e}")
+
+
 # --------------------------------------------------------------------------- #
 # Screens
 # --------------------------------------------------------------------------- #
@@ -169,28 +186,27 @@ class AbortBlock(Exception):
     """Participant pressed ESC during a block."""
 
 
-def get_session_info(settings):
-    """Startup dialog. Returns (participant, settings), or None if cancelled."""
+def get_session_info():
+    """Startup dialog (demographics only). Returns (participant, demographics), or None if cancelled."""
     info = {
         "Participant": "",
-        "Number of trials (x24)": settings["num_trials"],
-        "Fixation time (ms)": settings["fixation_time"],
+        "Age": "",
+        "Gender": ["Female", "Male", "Other"],
+        "Handedness": ["Right", "Left", "Ambidextrous"],
     }
-    order = [
-        "Participant",
-        "Number of trials (x24)",
-        "Fixation time (ms)",
-    ]
+    order = ["Participant", "Age", "Gender", "Handedness"]
     dlg = gui.DlgFromDict(info, title="Stroop Test", order=order)
     if not dlg.OK:
         return None
 
-    n = int(info["Number of trials (x24)"])
-    settings["num_trials"] = max(24, (n // 24) * 24)
-    settings["fixation_time"] = int(info["Fixation time (ms)"])
-
     participant = (info["Participant"] or "anonymous").strip() or "anonymous"
-    return participant, settings
+    demographics = {
+        "participant": participant,
+        "age": str(info["Age"]).strip(),
+        "gender": info["Gender"],
+        "handedness": info["Handedness"],
+    }
+    return participant, demographics
 
 
 def show_instructions(win, kb, settings):
@@ -248,7 +264,7 @@ def show_countdown(win, settings, seconds=3):
 # --------------------------------------------------------------------------- #
 # Trial
 # --------------------------------------------------------------------------- #
-def run_trial(win, kb, stimuli, stim_key, trial_number, total_trials, settings):
+def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
     """
     One trial: fixation -> stimulus -> response -> feedback.
 
@@ -262,12 +278,6 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, total_trials, settings):
 
     word_text, word_color = stimuli[stim_key]
 
-    counter = visual.TextStim(
-        win, text=f"Trial {trial_number + 1}/{total_trials}", color=(255, 255, 255),
-        colorSpace="rgb255", height=h(fs["counter"]),
-        anchorHoriz="left", anchorVert="top",
-        pos=(-aspect(win) / 2 + 0.02, 0.48),
-    )
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255), colorSpace="rgb255",
                                height=h(100))
     word = visual.TextStim(win, text=word_text.upper(), color=word_color,
@@ -295,12 +305,10 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, total_trials, settings):
 
     # --- Stimulus ---
     word.draw()
-    counter.draw()
     win.flip()
     core.wait(stimulus_time)
 
     # --- Response ---
-    counter.draw()
     win.flip()                # word disappears here
     kb.clearEvents()          # drop presses made while the word was up
     kb.clock.reset()          # t = 0 at stimulus offset -> RT origin
@@ -332,7 +340,6 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, total_trials, settings):
                              color=(255, 255, 255), colorSpace="rgb255",
                              height=h(fs["feedback"]))
         fb.draw()
-    counter.draw()
     win.flip()
     core.wait(iti)
     abort_if_escape()
@@ -348,10 +355,10 @@ def main():
 
     # Dialog first, window second: a dialog opened after the OpenGL window can end
     # up behind it on macOS and never take focus, which looks like a hang.
-    session = get_session_info(settings)
+    session = get_session_info()
     if session is None:
         core.quit()
-    participant, settings = session
+    participant, demographics = session
 
     words = settings.get("words", ["RED", "BLUE", "GREEN", "YELLOW"])
     stimuli_dict = create_stimuli(words, settings["colors"])
@@ -367,12 +374,13 @@ def main():
         show_countdown(win, settings, seconds=3)
         for i, stim_key in enumerate(trial_order):
             trial_results.append(
-                run_trial(win, kb, stimuli, stim_key, i, settings["num_trials"], settings)
+                run_trial(win, kb, stimuli, stim_key, i, settings)
             )
     except AbortBlock:
         pass  # keep whatever was collected
 
     write_results_csv(trial_results, participant)
+    write_participant_info(demographics, participant, task_label="Stroop A")
 
     done = visual.TextStim(win, text="Stroop A Complete!", color=(255, 255, 255),
                            colorSpace="rgb255", height=h(72))
