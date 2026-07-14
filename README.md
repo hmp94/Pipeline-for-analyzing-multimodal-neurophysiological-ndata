@@ -19,14 +19,23 @@ This pipeline takes raw CSV recordings from the Brain-Life device and produces:
 
 ```
 ├── code/
-│   ├── metadata.py                  # Single source of truth for all parameters
-│   ├── run_pipeline.py              # Main entry point — runs all steps
-│   ├── eeg_fi_line_chart.py         # EEG Focus Index standalone chart
-│   ├── fnirs_analysis.py            # fNIRS SCI, HbO/HbR quality check
-│   ├── fnirs_stroop_pipeline.py     # Alternative fNIRS pipeline (Stroop MATLAB logic)
-│   ├── csv_to_edf_denoised.py       # EEG CSV → EDF conversion with denoising
-│   ├── PPG_check_for_T (1).py       # PPG quality check module
-│   └── f-NIRS_check_for_T (1).py   # fNIRS quality check module
+│   ├── analysis/                    # Offline processing of recorded data
+│   │   ├── metadata.py                  # Single source of truth for all parameters
+│   │   ├── run_pipeline.py              # Main entry point — runs all steps
+│   │   ├── eeg_fi_line_chart.py         # EEG Focus Index standalone chart
+│   │   ├── fnirs_analysis.py            # fNIRS SCI, HbO/HbR quality check
+│   │   ├── csv_to_edf_denoised.py       # EEG CSV → EDF conversion with denoising
+│   │   ├── intensity_filter (1).py      # Hampel / DWT filters for fNIRS intensity
+│   │   ├── WPT_denoising_threshold.py   # Wavelet packet denoising for EEG
+│   │   ├── demo_filtfilt_compare.py     # lfilter vs filtfilt comparison for FI
+│   │   ├── utils.py                     # Timeline, outlier filter, paired stats
+│   │   ├── PPG_check_for_T (1).py       # PPG quality check module
+│   │   └── f-NIRS_check_for_T (1).py    # fNIRS quality check module
+│   └── experiment/                  # PsychoPy tasks run during acquisition
+│       ├── stroop_game_psychopy.py       # Stroop — respond to ink colour (C/M)
+│       ├── addition_game_psychopy.py     # Sum of two 3-digit numbers (2 min)
+│       ├── multiplication_game_psychopy.py  # Product of two 2-digit numbers (2 min)
+│       └── fairy_tale_psychopy.py        # Story reading (paged, 2 min)
 ├── data/
 │   └── raw/
 │       ├── csv/                     # Raw CSV recordings per subject
@@ -61,10 +70,14 @@ F0 (baseline, 110s) → PRE-FOCUS (10s) → F1 (110s) → REST (60s) → PRE-FOC
 ## Setup
 
 ```bash
+# analysis
 pip install numpy scipy matplotlib pandas pyedflib
+
+# experiment (acquisition machine only)
+pip install psychopy
 ```
 
-All configurable parameters (durations, sampling rates, channel names, paths) live in `metadata.py`. Edit that file only — all scripts import from it.
+All configurable analysis parameters (durations, sampling rates, channel names, paths) live in `code/analysis/metadata.py`. Edit that file only — all analysis scripts import from it.
 
 ---
 
@@ -73,27 +86,46 @@ All configurable parameters (durations, sampling rates, channel names, paths) li
 ### Run the full pipeline on a single file
 
 ```bash
-python run_pipeline.py data/raw/csv/subject.csv data/raw/edf \
+python code/analysis/run_pipeline.py data/raw/csv/subject.csv data/raw/edf \
     --summary-save graph/summary
 ```
 
 ### Run on all CSV files in a folder
 
 ```bash
-python run_pipeline.py data/raw/csv/ data/raw/edf \
+python code/analysis/run_pipeline.py data/raw/csv/ data/raw/edf \
     --summary-save graph/summary
 ```
 
 ### Run the standalone EEG FI chart
 
 ```bash
-python eeg_fi_line_chart.py
+python code/analysis/eeg_fi_line_chart.py
 ```
 
 ### Run the standalone fNIRS chart
 
 ```bash
-python fnirs_analysis.py data/raw/csv/subject.csv
+python code/analysis/fnirs_analysis.py data/raw/csv/subject.csv
+```
+
+---
+
+## Experiment Tasks
+
+The PsychoPy tasks in `code/experiment/` are run on the acquisition machine while EEG/fNIRS/PPG
+are recorded. Each opens a demographics dialog (participant, age, gender, handedness), runs for
+its fixed duration, and writes to `./results/`:
+
+| Task | Script | Description |
+|------|--------|-------------|
+| Stroop | `stroop_game_psychopy.py` | Respond to ink colour: C = blue/green, M = red/yellow. Word shown 250 ms, keys accepted only after it disappears |
+| Addition | `addition_game_psychopy.py` | Sum two 3-digit numbers, type answer + ENTER, continuous for 2 min |
+| Multiplication | `multiplication_game_psychopy.py` | Multiply two 2-digit numbers, same format, 2 min |
+| Fairy tale | `fairy_tale_psychopy.py` | Silent reading of a paged story, page views logged with timestamps, 2 min |
+
+```bash
+python code/experiment/stroop_game_psychopy.py
 ```
 
 ---
