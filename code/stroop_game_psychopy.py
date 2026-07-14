@@ -1,0 +1,388 @@
+"""
+Stroop task (PsychoPy).
+
+Output:  ./results/"Game Result - <participant> Stroop A.csv"
+         trial_number, stimulus, word, color, response, reaction_time, correct
+
+Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
+         Keys are accepted only after the word disappears.
+         Respond to the INK COLOUR: C = blue/green, M = red/yellow.
+         reaction_time is ms from stimulus OFFSET; a timeout logs 2000.
+
+Run:     python stroop_game_psychopy.py     (ESC aborts a block; partial data is saved)
+"""
+
+import os
+import sys
+import csv
+import json
+import random
+
+from psychopy import visual, core, gui
+from psychopy.hardware import keyboard
+
+
+# Drawing uses PsychoPy 'height' units (1.0 == window height, y from -0.5 to +0.5),
+# so the layout survives any window size and macOS Retina pixel doubling.
+REF_H = 1080.0  # font sizes in settings are pixels for a 1080px-tall screen
+
+
+def h(px):
+    """Pixel size -> 'height' units."""
+    return px / REF_H
+
+
+def aspect(win):
+    """Window width / height."""
+    return win.size[0] / win.size[1]
+
+
+# --------------------------------------------------------------------------- #
+# Settings
+# --------------------------------------------------------------------------- #
+def resource_path(relative_path):
+    """Absolute path to a bundled resource (also works under PyInstaller)."""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
+def get_default_settings():
+    return {
+        "words": ["RED", "BLUE", "GREEN", "YELLOW"],
+        "colors": {
+            "red": (255, 0, 0),
+            "blue": (0, 0, 255),
+            "green": (0, 255, 0),
+            "yellow": (255, 255, 0),
+        },
+        "num_trials": 24,
+        "stimulus_time": 250,
+        "inter_trial_interval": 500,
+        "fixation_time": 250,
+        "response_time_limit": 2000,
+        "font_sizes": {
+            "title": 144,
+            "stimulus": 120,
+            "feedback": 100,
+            "input": 48,
+            "instruction": 72,
+            "counter": 36,
+            "settings": 80,
+            "settings_value": 64,
+        },
+    }
+
+
+def load_settings(settings_file="settings.json"):
+    """Load settings.json if present, else use defaults."""
+    if getattr(sys, "frozen", False):
+        settings_path = os.path.join(os.path.dirname(sys.executable), settings_file)
+    else:
+        settings_path = resource_path(settings_file)
+    try:
+        with open(settings_path, "r") as f:
+            settings = json.load(f)
+        settings["colors"] = {k: tuple(v) for k, v in settings["colors"].items()}
+        return settings
+    except FileNotFoundError:
+        print(f"Settings file not found: {settings_path} (using defaults)")
+        return get_default_settings()
+
+
+def ensure_settings_defaults(settings):
+    """Merge loaded settings over defaults so required keys always exist."""
+    defaults = get_default_settings()
+    merged = {**defaults, **(settings or {})}
+    merged["colors"] = {**defaults["colors"], **merged.get("colors", {})}
+    merged["font_sizes"] = {**defaults["font_sizes"], **merged.get("font_sizes", {})}
+    return merged
+
+
+# --------------------------------------------------------------------------- #
+# Stimuli
+# --------------------------------------------------------------------------- #
+def create_stimuli(words, colors):
+    """Congruent (word matches ink) and incongruent stimuli, keyed "WORD_ink"."""
+    congruent_stimuli = {}
+    incongruent_stimuli = {}
+    color_names = list(colors.keys())
+
+    for word in words:
+        for color_name in color_names:
+            if word.upper() == color_name.upper():
+                congruent_stimuli[f"{word}_{color_name}"] = (word, colors[color_name])
+            else:
+                incongruent_stimuli[f"{word}_{color_name}"] = (word, colors[color_name])
+
+    return {"congruent": congruent_stimuli, "incongruent": incongruent_stimuli}
+
+
+def create_trial_order(stimuli, num_trials):
+    """Per 24 trials: 12 congruent + 12 incongruent, evenly spread, then shuffled."""
+    congruent_keys = list(stimuli["congruent"].keys())
+    incongruent_keys = list(stimuli["incongruent"].keys())
+    all_stimuli = {**stimuli["congruent"], **stimuli["incongruent"]}
+
+    trial_order = []
+    for _ in range(max(1, num_trials // 24)):
+        set_trials = []
+        for keys, per_set in ((congruent_keys, 12), (incongruent_keys, 12)):
+            each, remainder = divmod(per_set, len(keys))
+            for i, key in enumerate(keys):
+                set_trials.extend([key] * (each + (1 if i < remainder else 0)))
+        random.shuffle(set_trials)
+        trial_order.extend(set_trials)
+
+    return all_stimuli, trial_order
+
+
+# --------------------------------------------------------------------------- #
+# Results
+# --------------------------------------------------------------------------- #
+def write_results_csv(trial_results, participant_name="anonymous", results_dir_name="results"):
+    """Write one row per trial to ./results/."""
+    try:
+        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
+        results_dir = os.path.join(base_dir, results_dir_name)
+        os.makedirs(results_dir, exist_ok=True)
+
+        filepath = os.path.join(results_dir, f"Game Result - {participant_name} Stroop A.csv")
+
+        fieldnames = ["trial_number", "stimulus", "word", "color", "response", "reaction_time", "correct"]
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for tr in (trial_results or []):
+                writer.writerow({k: tr.get(k) for k in fieldnames})
+        print(f"Saved: {filepath}")
+    except Exception as e:
+        print(f"Failed to write results CSV: {e}")
+
+
+# --------------------------------------------------------------------------- #
+# Screens
+# --------------------------------------------------------------------------- #
+class AbortBlock(Exception):
+    """Participant pressed ESC during a block."""
+
+
+def get_session_info(settings):
+    """Startup dialog. Returns (participant, settings), or None if cancelled."""
+    info = {
+        "Participant": "",
+        "Number of trials (x24)": settings["num_trials"],
+        "Fixation time (ms)": settings["fixation_time"],
+    }
+    order = [
+        "Participant",
+        "Number of trials (x24)",
+        "Fixation time (ms)",
+    ]
+    dlg = gui.DlgFromDict(info, title="Stroop Test", order=order)
+    if not dlg.OK:
+        return None
+
+    n = int(info["Number of trials (x24)"])
+    settings["num_trials"] = max(24, (n // 24) * 24)
+    settings["fixation_time"] = int(info["Fixation time (ms)"])
+
+    participant = (info["Participant"] or "anonymous").strip() or "anonymous"
+    return participant, settings
+
+
+def show_instructions(win, kb, settings):
+    """Instruction screen. SPACE continues, ESC aborts."""
+    fs = settings["font_sizes"]
+    white = (255, 255, 255)
+
+    rows = [
+        ((0, 0, 255), "=> press C", 0.16),
+        ((0, 255, 0), "=> press C", 0.06),
+        ((255, 0, 0), "=> press M", -0.04),
+        ((255, 255, 0), "=> press M", -0.14),
+    ]
+    gap = 0.012
+
+    stims = [
+        visual.TextStim(win, text="Instructions", color=white, colorSpace="rgb255",
+                        height=h(fs["title"]), pos=(0, 0.36)),
+        visual.TextStim(win, text="Press SPACE to continue...", color=white,
+                        colorSpace="rgb255", height=h(fs["instruction"]),
+                        pos=(0, -0.40), wrapWidth=1.6),
+    ]
+    for colour, tail, y in rows:
+        stims.append(visual.TextStim(win, text="COLOR", color=colour, colorSpace="rgb255",
+                                     height=h(fs["instruction"]), anchorHoriz="right",
+                                     alignText="right", pos=(-gap, y)))
+        stims.append(visual.TextStim(win, text=tail, color=white, colorSpace="rgb255",
+                                     height=h(fs["instruction"]), anchorHoriz="left",
+                                     alignText="left", pos=(gap, y)))
+
+    kb.clearEvents()
+    while True:
+        for s in stims:
+            s.draw()
+        win.flip()
+
+        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+            if k.name == "escape":
+                raise AbortBlock
+            if k.name == "space":
+                return
+
+
+def show_countdown(win, settings, seconds=3):
+    """3-2-1 countdown."""
+    stim = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
+                           height=h(200))
+    for count in range(seconds, 0, -1):
+        stim.text = str(count)
+        stim.draw()
+        win.flip()
+        core.wait(1.0)
+
+
+# --------------------------------------------------------------------------- #
+# Trial
+# --------------------------------------------------------------------------- #
+def run_trial(win, kb, stimuli, stim_key, trial_number, total_trials, settings):
+    """
+    One trial: fixation -> stimulus -> response -> feedback.
+
+    Returns a result dict; raises AbortBlock on ESC.
+    """
+    fs = settings["font_sizes"]
+    fixation_time = settings["fixation_time"] / 1000.0
+    stimulus_time = settings["stimulus_time"] / 1000.0
+    iti = settings["inter_trial_interval"] / 1000.0
+    response_limit = settings["response_time_limit"] / 1000.0
+
+    word_text, word_color = stimuli[stim_key]
+
+    counter = visual.TextStim(
+        win, text=f"Trial {trial_number + 1}/{total_trials}", color=(255, 255, 255),
+        colorSpace="rgb255", height=h(fs["counter"]),
+        anchorHoriz="left", anchorVert="top",
+        pos=(-aspect(win) / 2 + 0.02, 0.48),
+    )
+    fixation = visual.TextStim(win, text="+", color=(255, 255, 255), colorSpace="rgb255",
+                               height=h(100))
+    word = visual.TextStim(win, text=word_text.upper(), color=word_color,
+                           colorSpace="rgb255", height=h(fs["stimulus"]))
+
+    trial_data = {
+        "trial_number": trial_number + 1,
+        "stimulus": stim_key,
+        "word": word_text,
+        "color": stim_key.split("_")[1],
+        "response": None,
+        "reaction_time": None,
+        "correct": None,
+    }
+
+    def abort_if_escape():
+        if kb.getKeys(["escape"], waitRelease=False):
+            raise AbortBlock
+
+    # --- Fixation ---
+    fixation.draw()
+    win.flip()
+    core.wait(fixation_time)
+    abort_if_escape()
+
+    # --- Stimulus ---
+    word.draw()
+    counter.draw()
+    win.flip()
+    core.wait(stimulus_time)
+
+    # --- Response ---
+    counter.draw()
+    win.flip()                # word disappears here
+    kb.clearEvents()          # drop presses made while the word was up
+    kb.clock.reset()          # t = 0 at stimulus offset -> RT origin
+    while True:
+        keys = kb.getKeys(["c", "m", "escape"], waitRelease=False)
+        for k in keys:
+            if k.name == "escape":
+                raise AbortBlock
+            if k.name in ("c", "m"):
+                trial_data["response"] = k.name
+                trial_data["reaction_time"] = int(round(k.rt * 1000))
+                color_name = trial_data["color"]
+                if k.name == "c":
+                    trial_data["correct"] = color_name in ("blue", "green")
+                else:
+                    trial_data["correct"] = color_name in ("red", "yellow")
+                break
+        if trial_data["response"] is not None:
+            break
+        if kb.clock.getTime() > response_limit:
+            trial_data["response"] = "timeout"
+            trial_data["reaction_time"] = settings["response_time_limit"]
+            trial_data["correct"] = False
+            break
+
+    # --- Feedback / ITI ---
+    if trial_data["response"] != "timeout":
+        fb = visual.TextStim(win, text="Correct" if trial_data["correct"] else "Wrong",
+                             color=(255, 255, 255), colorSpace="rgb255",
+                             height=h(fs["feedback"]))
+        fb.draw()
+    counter.draw()
+    win.flip()
+    core.wait(iti)
+    abort_if_escape()
+
+    return trial_data
+
+
+# --------------------------------------------------------------------------- #
+# Main
+# --------------------------------------------------------------------------- #
+def main():
+    settings = ensure_settings_defaults(load_settings())
+
+    # Dialog first, window second: a dialog opened after the OpenGL window can end
+    # up behind it on macOS and never take focus, which looks like a hang.
+    session = get_session_info(settings)
+    if session is None:
+        core.quit()
+    participant, settings = session
+
+    words = settings.get("words", ["RED", "BLUE", "GREEN", "YELLOW"])
+    stimuli_dict = create_stimuli(words, settings["colors"])
+    stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
+
+    win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
+                        colorSpace="rgb255", units="height", allowGUI=True)
+    kb = keyboard.Keyboard()
+
+    trial_results = []
+    try:
+        show_instructions(win, kb, settings)
+        show_countdown(win, settings, seconds=3)
+        for i, stim_key in enumerate(trial_order):
+            trial_results.append(
+                run_trial(win, kb, stimuli, stim_key, i, settings["num_trials"], settings)
+            )
+    except AbortBlock:
+        pass  # keep whatever was collected
+
+    write_results_csv(trial_results, participant)
+
+    done = visual.TextStim(win, text="Stroop A Complete!", color=(255, 255, 255),
+                           colorSpace="rgb255", height=h(72))
+    done.draw()
+    win.flip()
+    core.wait(2.0)
+
+    win.close()
+    core.quit()
+
+
+if __name__ == "__main__":
+    main()
