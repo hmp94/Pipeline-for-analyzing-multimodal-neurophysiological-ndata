@@ -172,11 +172,16 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings):
-    """Instruction screen. SPACE continues, ESC aborts."""
+def show_instructions(win, kb, settings, auto_advance_s=7.0):
+    """Instruction screen; auto-advances after auto_advance_s seconds.
+
+    No key press is required to proceed. SPACE skips the wait early; ESC aborts.
+    """
     fs = settings["font_sizes"]
     white = (255, 255, 255)
 
+    footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
+                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6)
     stims = [
         visual.TextStim(win, text=TASK_LABEL, color=white, colorSpace="rgb255",
                         height=h(fs["title"]), pos=(0, 0.32)),
@@ -187,15 +192,18 @@ def show_instructions(win, kb, settings):
                               "Keep solving problems until the time runs out."),
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
                         pos=(0, 0.0), wrapWidth=1.6),
-        visual.TextStim(win, text="Press SPACE to start...", color=white,
-                        colorSpace="rgb255", height=h(fs["instruction"]),
-                        pos=(0, -0.38), wrapWidth=1.6),
     ]
 
     kb.clearEvents()
+    clock = core.Clock()
     while True:
+        remaining = auto_advance_s - clock.getTime()
+        if remaining <= 0:
+            return
+        footer.text = f"Starting in {int(remaining) + 1}…"
         for s in stims:
             s.draw()
+        footer.draw()
         win.flip()
 
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
@@ -305,21 +313,17 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
 
 
 # --------------------------------------------------------------------------- #
-# Main
+# Session entry points
 # --------------------------------------------------------------------------- #
-def main():
-    settings = ensure_settings_defaults(load_settings())
+def run(win, kb, participant, demographics, settings=None):
+    """Run the task in an existing window and write results.
 
-    # Dialog first, window second: a dialog opened after the OpenGL window can end
-    # up behind it on macOS and never take focus, which looks like a hang.
-    session = get_session_info()
-    if session is None:
-        core.quit()
-    participant, demographics = session
-
-    win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
-                        colorSpace="rgb255", units="height", allowGUI=True)
-    kb = keyboard.Keyboard()
+    Shared-window entry point used by the session runner: it does not open a
+    dialog or manage the window. Returns a short summary string. On ESC it
+    raises AbortBlock after the collected problems have been saved.
+    """
+    if settings is None:
+        settings = ensure_settings_defaults(load_settings())
 
     duration_s = settings["task_duration"] / 1000.0
     trial_results = []
@@ -335,14 +339,35 @@ def main():
             trial_results.append(result)
             if timed_out:
                 break
-    except AbortBlock:
-        pass  # keep whatever was collected
-
-    write_results_csv(trial_results, participant)
-    write_participant_info(demographics, participant)
+    finally:
+        write_results_csv(trial_results, participant)
+        write_participant_info(demographics, participant)
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
-    done = visual.TextStim(win, text=f"{TASK_LABEL} Complete!\nScore: {correct}/{len(trial_results)}",
+    return f"{correct}/{len(trial_results)} correct"
+
+
+def main():
+    settings = ensure_settings_defaults(load_settings())
+
+    # Dialog first, window second: a dialog opened after the OpenGL window can end
+    # up behind it on macOS and never take focus, which looks like a hang.
+    session = get_session_info()
+    if session is None:
+        core.quit()
+    participant, demographics = session
+
+    win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
+                        colorSpace="rgb255", units="height", allowGUI=True)
+    kb = keyboard.Keyboard()
+
+    summary = ""
+    try:
+        summary = run(win, kb, participant, demographics, settings)
+    except AbortBlock:
+        pass  # partial data already saved in run()
+
+    done = visual.TextStim(win, text=f"{TASK_LABEL} Complete!\n{summary}",
                            color=(255, 255, 255), colorSpace="rgb255", height=h(72))
     done.draw()
     win.flip()

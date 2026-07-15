@@ -220,8 +220,11 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings):
-    """Instruction screen. SPACE continues, ESC aborts."""
+def show_instructions(win, kb, settings, auto_advance_s=7.0):
+    """Instruction screen; auto-advances after auto_advance_s seconds.
+
+    No key press is required to proceed. SPACE skips the wait early; ESC aborts.
+    """
     fs = settings["font_sizes"]
     white = (255, 255, 255)
 
@@ -235,15 +238,20 @@ def show_instructions(win, kb, settings):
                               "The task ends automatically."),
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
                         pos=(0, 0.0), wrapWidth=1.6),
-        visual.TextStim(win, text="Press SPACE to start...", color=white,
-                        colorSpace="rgb255", height=h(fs["instruction"]),
-                        pos=(0, -0.38), wrapWidth=1.6),
     ]
+    footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
+                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6)
 
     kb.clearEvents()
+    clock = core.Clock()
     while True:
+        remaining = auto_advance_s - clock.getTime()
+        if remaining <= 0:
+            return
+        footer.text = f"Starting in {int(remaining) + 1}…"
         for s in stims:
             s.draw()
+        footer.draw()
         win.flip()
 
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
@@ -303,12 +311,35 @@ def run_reading(win, kb, title, pages, settings, events):
 
 
 # --------------------------------------------------------------------------- #
-# Main
+# Session entry points
 # --------------------------------------------------------------------------- #
-def main():
-    settings = ensure_settings_defaults(load_settings())
+def run(win, kb, participant, demographics, settings=None):
+    """Run the reading task in an existing window and write the event log.
+
+    Shared-window entry point used by the session runner: it does not open a
+    dialog or manage the window. Returns a short summary string. On ESC it
+    raises AbortBlock after the collected event log has been saved.
+    """
+    if settings is None:
+        settings = ensure_settings_defaults(load_settings())
     title, body = load_story()
     pages = paginate(body, settings["chars_per_page"])
+
+    events = []
+    try:
+        show_instructions(win, kb, settings)
+        run_reading(win, kb, title, pages, settings, events)
+    finally:
+        write_results_csv(events, participant)
+        write_participant_info(demographics, participant)
+
+    pages_read = max((e.get("page") or 0 for e in events if e["event"] == "page_view"),
+                     default=0)
+    return f"{pages_read}/{len(pages)} pages"
+
+
+def main():
+    settings = ensure_settings_defaults(load_settings())
 
     # Dialog first, window second: a dialog opened after the OpenGL window can end
     # up behind it on macOS and never take focus, which looks like a hang.
@@ -321,15 +352,10 @@ def main():
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 
-    events = []
     try:
-        show_instructions(win, kb, settings)
-        run_reading(win, kb, title, pages, settings, events)
+        run(win, kb, participant, demographics, settings)
     except AbortBlock:
-        pass  # keep the event log collected so far
-
-    write_results_csv(events, participant)
-    write_participant_info(demographics, participant)
+        pass  # event log already saved in run()
 
     done = visual.TextStim(win, text="Story Complete!", color=(255, 255, 255),
                            colorSpace="rgb255", height=h(72))

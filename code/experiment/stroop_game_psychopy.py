@@ -31,6 +31,9 @@ from psychopy.hardware import keyboard
 REF_H = 1080.0  # font sizes in settings are pixels for a 1080px-tall screen
 
 
+TASK_LABEL = "Stroop A"
+
+
 def h(px):
     """Pixel size -> 'height' units."""
     return px / REF_H
@@ -209,8 +212,11 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings):
-    """Instruction screen. SPACE continues, ESC aborts."""
+def show_instructions(win, kb, settings, auto_advance_s=7.0):
+    """Instruction screen; auto-advances after auto_advance_s seconds.
+
+    No key press is required to proceed. SPACE skips the wait early; ESC aborts.
+    """
     fs = settings["font_sizes"]
     white = (255, 255, 255)
 
@@ -222,12 +228,11 @@ def show_instructions(win, kb, settings):
     ]
     gap = 0.012
 
+    footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
+                             height=h(fs["instruction"]), pos=(0, -0.40), wrapWidth=1.6)
     stims = [
         visual.TextStim(win, text="Instructions", color=white, colorSpace="rgb255",
                         height=h(fs["title"]), pos=(0, 0.36)),
-        visual.TextStim(win, text="Press SPACE to continue...", color=white,
-                        colorSpace="rgb255", height=h(fs["instruction"]),
-                        pos=(0, -0.40), wrapWidth=1.6),
     ]
     for colour, tail, y in rows:
         stims.append(visual.TextStim(win, text="COLOR", color=colour, colorSpace="rgb255",
@@ -238,9 +243,15 @@ def show_instructions(win, kb, settings):
                                      alignText="left", pos=(gap, y)))
 
     kb.clearEvents()
+    clock = core.Clock()
     while True:
+        remaining = auto_advance_s - clock.getTime()
+        if remaining <= 0:
+            return
+        footer.text = f"Starting in {int(remaining) + 1}…"
         for s in stims:
             s.draw()
+        footer.draw()
         win.flip()
 
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
@@ -348,8 +359,38 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
 
 
 # --------------------------------------------------------------------------- #
-# Main
+# Session entry points
 # --------------------------------------------------------------------------- #
+def run(win, kb, participant, demographics, settings=None):
+    """Run the Stroop task in an existing window and write results.
+
+    Shared-window entry point used by the session runner: it does not open a
+    dialog or manage the window. Returns a short summary string. On ESC it
+    raises AbortBlock after the collected trials have been saved.
+    """
+    if settings is None:
+        settings = ensure_settings_defaults(load_settings())
+
+    words = settings.get("words", ["RED", "BLUE", "GREEN", "YELLOW"])
+    stimuli_dict = create_stimuli(words, settings["colors"])
+    stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
+
+    trial_results = []
+    try:
+        show_instructions(win, kb, settings)
+        show_countdown(win, settings, seconds=3)
+        for i, stim_key in enumerate(trial_order):
+            trial_results.append(
+                run_trial(win, kb, stimuli, stim_key, i, settings)
+            )
+    finally:
+        write_results_csv(trial_results, participant)
+        write_participant_info(demographics, participant, task_label=TASK_LABEL)
+
+    correct = sum(1 for tr in trial_results if tr.get("correct"))
+    return f"{correct}/{len(trial_results)} correct"
+
+
 def main():
     settings = ensure_settings_defaults(load_settings())
 
@@ -360,29 +401,16 @@ def main():
         core.quit()
     participant, demographics = session
 
-    words = settings.get("words", ["RED", "BLUE", "GREEN", "YELLOW"])
-    stimuli_dict = create_stimuli(words, settings["colors"])
-    stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
-
     win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 
-    trial_results = []
     try:
-        show_instructions(win, kb, settings)
-        show_countdown(win, settings, seconds=3)
-        for i, stim_key in enumerate(trial_order):
-            trial_results.append(
-                run_trial(win, kb, stimuli, stim_key, i, settings)
-            )
+        run(win, kb, participant, demographics, settings)
     except AbortBlock:
-        pass  # keep whatever was collected
+        pass  # partial data already saved in run()
 
-    write_results_csv(trial_results, participant)
-    write_participant_info(demographics, participant, task_label="Stroop A")
-
-    done = visual.TextStim(win, text="Stroop A Complete!", color=(255, 255, 255),
+    done = visual.TextStim(win, text=f"{TASK_LABEL} Complete!", color=(255, 255, 255),
                            colorSpace="rgb255", height=h(72))
     done.draw()
     win.flip()

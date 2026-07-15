@@ -121,8 +121,8 @@ python code/analysis/fnirs_analysis.py data/raw/csv/subject.csv
 ## Experiment Tasks
 
 The PsychoPy tasks in `code/experiment/` are run on the acquisition machine while EEG/fNIRS/PPG
-are recorded. Each opens a demographics dialog (participant, age, gender, handedness), runs for
-its fixed duration, and writes to `./results/`:
+are recorded. Each writes to `./results/` (a per-task `Game Result - <participant> <Task>.csv`
+plus a `… info.json` with demographics).
 
 | Task | Script | Description |
 |------|--------|-------------|
@@ -130,6 +130,27 @@ its fixed duration, and writes to `./results/`:
 | Addition | `addition_game_psychopy.py` | Sum two 3-digit numbers, type answer + ENTER, continuous for 2 min |
 | Multiplication | `multiplication_game_psychopy.py` | Multiply two 2-digit numbers, same format, 2 min |
 | Fairy tale | `fairy_tale_psychopy.py` | Silent reading of a paged story, page views logged with timestamps, 2 min |
+
+### Run the full session (recommended)
+
+```bash
+python code/experiment/run_all_experiments.py
+```
+
+`run_all_experiments.py` runs all four tasks in one session:
+
+- The demographics dialog (participant, age, gender, handedness) is shown **once** at the start.
+- Task order is **randomized** each session.
+- One window is shared by every task, so the screen never flashes between them — the transitions
+  advance **automatically** (a short countdown), with no key press needed to confirm readiness.
+  SPACE is only an optional early-skip; **ESC** aborts the whole session and saves partial data.
+- In addition to the per-task files, it writes a session manifest
+  `Game Result - <participant> Session.json` recording the randomized order, which tasks
+  completed, and whether the session was aborted.
+
+### Run a single task
+
+Each script is still runnable on its own (it shows its own demographics dialog):
 
 ```bash
 python code/experiment/stroop_game_psychopy.py
