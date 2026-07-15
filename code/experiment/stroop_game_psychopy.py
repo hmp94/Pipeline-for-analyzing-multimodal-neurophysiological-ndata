@@ -218,46 +218,57 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings, auto_advance_s=7.0):
+def show_instructions(win, kb, settings, auto_advance_s=30.0):
     """Instruction screen; auto-advances after auto_advance_s seconds.
 
-    No key press is required to proceed. SPACE skips the wait early; ESC aborts.
+    No key press is required to proceed and no countdown is shown. SPACE skips
+    ahead; ESC aborts.
     """
-    fs = settings["font_sizes"]
     white = (255, 255, 255)
 
+    # (ink colour, key label, y) — the "COLOR" word is printed in that ink.
     rows = [
-        ((0, 0, 255), "=> press C", 0.16),
-        ((0, 255, 0), "=> press C", 0.06),
-        ((255, 0, 0), "=> press M", -0.04),
-        ((255, 255, 0), "=> press M", -0.14),
+        ((0, 0, 255),   "=>  press  C", -0.09),
+        ((0, 255, 0),   "=>  press  C", -0.15),
+        ((255, 0, 0),   "=>  press  M", -0.21),
+        ((255, 255, 0), "=>  press  M", -0.27),
     ]
     gap = 0.012
 
-    footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
-                             height=h(fs["instruction"]), pos=(0, -0.40), wrapWidth=1.6)
     stims = [
-        visual.TextStim(win, text="Instructions", color=white, colorSpace="rgb255",
-                        height=h(fs["title"]), pos=(0, 0.36)),
+        visual.TextStim(win, text="Stroop Task", color=white, colorSpace="rgb255",
+                        height=h(88), pos=(0, 0.44)),
+        visual.TextStim(
+            win,
+            text=("Respond to the COLOUR OF THE INK, not the word.\n"
+                  "\n"
+                  "Each word flashes briefly, then disappears.\n"
+                  "Keys are ignored while the word is on screen — wait for\n"
+                  "it to disappear, then press as fast and accurately as\n"
+                  "you can. Give one key press per word."),
+            color=white, colorSpace="rgb255", height=h(42),
+            pos=(0, 0.20), wrapWidth=1.5, alignText="center"),
+        visual.TextStim(win, text="Respond to the ink colour:", color=(200, 200, 200),
+                        colorSpace="rgb255", height=h(38), pos=(0, -0.02)),
+        visual.TextStim(win, text="The task starts automatically.  Press SPACE to begin now.",
+                        color=(160, 160, 160), colorSpace="rgb255", height=h(34),
+                        pos=(0, -0.44), wrapWidth=1.7),
     ]
     for colour, tail, y in rows:
         stims.append(visual.TextStim(win, text="COLOR", color=colour, colorSpace="rgb255",
-                                     height=h(fs["instruction"]), anchorHoriz="right",
+                                     height=h(52), anchorHoriz="right",
                                      alignText="right", pos=(-gap, y)))
         stims.append(visual.TextStim(win, text=tail, color=white, colorSpace="rgb255",
-                                     height=h(fs["instruction"]), anchorHoriz="left",
+                                     height=h(52), anchorHoriz="left",
                                      alignText="left", pos=(gap, y)))
 
     kb.clearEvents()
     clock = core.Clock()
     while True:
-        remaining = auto_advance_s - clock.getTime()
-        if remaining <= 0:
+        if clock.getTime() >= auto_advance_s:
             return
-        footer.text = f"Starting in {int(remaining) + 1}…"
         for s in stims:
             s.draw()
-        footer.draw()
         win.flip()
 
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
