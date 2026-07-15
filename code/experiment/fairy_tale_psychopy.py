@@ -161,12 +161,14 @@ def write_results_csv(events, participant_name="anonymous", results_dir_name="re
 
         filepath = os.path.join(results_dir, f"Game Result - {participant_name} {TASK_LABEL}.csv")
 
-        fieldnames = ["event", "page", "time_ms"]
+        fieldnames = ["task_type", "event", "page", "time_ms"]
         with open(filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for ev in (events or []):
-                writer.writerow({k: ev.get(k) for k in fieldnames})
+                row = {k: ev.get(k) for k in fieldnames}
+                row["task_type"] = TASK_LABEL
+                writer.writerow(row)
         print(f"Saved: {filepath}")
     except Exception as e:
         print(f"Failed to write results CSV: {e}")
