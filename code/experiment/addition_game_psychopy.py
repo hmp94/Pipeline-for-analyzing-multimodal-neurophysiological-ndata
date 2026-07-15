@@ -64,6 +64,7 @@ def get_default_settings():
     return {
         "task_duration": 120000,     # ms, whole session
         "feedback_time": 1500,       # ms
+        "response_window": None,     # ms per problem; None = no per-problem limit
         "min_operand": 100,
         "max_operand": 999,
         "max_input_digits": 5,
@@ -213,7 +214,7 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
                 return
 
 
-def show_countdown(win, settings, seconds=3):
+def show_countdown(win, settings, seconds=10):
     """3-2-1 countdown."""
     stim = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
                            height=h(200))
@@ -264,10 +265,16 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
         "correct": None,
     }
 
+    response_window = settings.get("response_window")
+    resp_limit_s = response_window / 1000.0 if response_window else None
+
     kb.clearEvents()
     problem_clock = core.Clock()
     user_input = ""
     while True:
+        if resp_limit_s is not None:
+            remaining = max(0, resp_limit_s - problem_clock.getTime())
+            hint.text = f"Type answer and press ENTER   ({int(remaining) + 1}s left)"
         problem.draw()
         box.draw()
         entry.text = user_input
@@ -295,9 +302,16 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
             trial_data["reaction_time"] = int(round(problem_clock.getTime() * 1000))
             trial_data["correct"] = False
             return trial_data, True
+        if resp_limit_s is not None and problem_clock.getTime() >= resp_limit_s:
+            trial_data["response"] = "timeout"
+            trial_data["reaction_time"] = int(round(problem_clock.getTime() * 1000))
+            trial_data["correct"] = False
+            break
 
     # --- Feedback ---
-    if trial_data["correct"]:
+    if trial_data["response"] == "timeout":
+        fb_text, fb_color = f"No response — Answer: {answer}", (255, 200, 0)
+    elif trial_data["correct"]:
         fb_text, fb_color = "Correct!", (0, 255, 0)
     else:
         fb_text, fb_color = f"Incorrect! Answer: {answer}", (255, 68, 68)
@@ -329,7 +343,7 @@ def run(win, kb, participant, demographics, settings=None):
     trial_results = []
     try:
         show_instructions(win, kb, settings)
-        show_countdown(win, settings, seconds=3)
+        show_countdown(win, settings, seconds=10)
         task_clock = core.Clock()
         trial_number = 0
         while task_clock.getTime() < duration_s:
@@ -344,7 +358,11 @@ def run(win, kb, participant, demographics, settings=None):
         write_participant_info(demographics, participant)
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
-    return f"{correct}/{len(trial_results)} correct"
+    no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
+    summary = f"{correct}/{len(trial_results)} correct"
+    if no_resp:
+        summary += f", {no_resp} no response"
+    return summary
 
 
 def main():

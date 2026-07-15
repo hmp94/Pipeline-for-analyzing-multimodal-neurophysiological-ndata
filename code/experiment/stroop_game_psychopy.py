@@ -261,7 +261,7 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
                 return
 
 
-def show_countdown(win, settings, seconds=3):
+def show_countdown(win, settings, seconds=10):
     """3-2-1 countdown."""
     stim = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
                            height=h(200))
@@ -346,11 +346,14 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
             break
 
     # --- Feedback / ITI ---
-    if trial_data["response"] != "timeout":
+    if trial_data["response"] == "timeout":
+        fb = visual.TextStim(win, text="No response", color=(255, 200, 0),
+                             colorSpace="rgb255", height=h(fs["feedback"]))
+    else:
         fb = visual.TextStim(win, text="Correct" if trial_data["correct"] else "Wrong",
                              color=(255, 255, 255), colorSpace="rgb255",
                              height=h(fs["feedback"]))
-        fb.draw()
+    fb.draw()
     win.flip()
     core.wait(iti)
     abort_if_escape()
@@ -378,7 +381,7 @@ def run(win, kb, participant, demographics, settings=None):
     trial_results = []
     try:
         show_instructions(win, kb, settings)
-        show_countdown(win, settings, seconds=3)
+        show_countdown(win, settings, seconds=10)
         for i, stim_key in enumerate(trial_order):
             trial_results.append(
                 run_trial(win, kb, stimuli, stim_key, i, settings)
@@ -388,7 +391,11 @@ def run(win, kb, participant, demographics, settings=None):
         write_participant_info(demographics, participant, task_label=TASK_LABEL)
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
-    return f"{correct}/{len(trial_results)} correct"
+    no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
+    summary = f"{correct}/{len(trial_results)} correct"
+    if no_resp:
+        summary += f", {no_resp} no response"
+    return summary
 
 
 def main():

@@ -261,6 +261,17 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
                 return
 
 
+def show_countdown(win, settings, seconds=10):
+    """Big N..1 countdown before the task starts."""
+    stim = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
+                           height=h(200))
+    for count in range(seconds, 0, -1):
+        stim.text = str(count)
+        stim.draw()
+        win.flip()
+        core.wait(1.0)
+
+
 # --------------------------------------------------------------------------- #
 # Reading loop
 # --------------------------------------------------------------------------- #
@@ -291,7 +302,8 @@ def run_reading(win, kb, title, pages, settings, events):
                            "time_ms": int(round(task_clock.getTime() * 1000))})
             shown_page = page_idx
 
-        title_stim.draw()
+        if page_idx == 0:
+            title_stim.draw()      # yellow title shown on the first page only
         body_stim.draw()
         hint_stim.draw()
         win.flip()
@@ -328,6 +340,7 @@ def run(win, kb, participant, demographics, settings=None):
     events = []
     try:
         show_instructions(win, kb, settings)
+        show_countdown(win, settings, seconds=10)
         run_reading(win, kb, title, pages, settings, events)
     finally:
         write_results_csv(events, participant)

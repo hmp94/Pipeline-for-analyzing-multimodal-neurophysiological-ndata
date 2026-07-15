@@ -129,7 +129,8 @@ def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
 # Results
 # --------------------------------------------------------------------------- #
 def write_session_manifest(participant, demographics, order_labels,
-                           completed=None, aborted=False, results_dir_name="results"):
+                           completed=None, aborted=False, results=None,
+                           results_dir_name="results"):
     """Write/overwrite the session manifest recording the randomized order and status."""
     try:
         base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
@@ -143,6 +144,7 @@ def write_session_manifest(participant, demographics, order_labels,
             "task_order": order_labels,
             "completed": completed if completed is not None else [],
             "aborted": aborted,
+            "results": results if results is not None else {},
             **(demographics or {}),
         }
         with open(filepath, "w", encoding="utf-8") as f:
@@ -200,7 +202,8 @@ def main():
         aborted = True
 
     write_session_manifest(participant, demographics, order_labels,
-                           completed=completed_labels, aborted=aborted)
+                           completed=completed_labels, aborted=aborted,
+                           results=dict(summaries))
 
     final_lines = ["Session ended early" if aborted else "All tasks complete!", ""]
     final_lines += [f"{label}:  {summary}" for label, summary in summaries] or ["(no tasks recorded)"]
