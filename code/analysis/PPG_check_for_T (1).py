@@ -3,6 +3,8 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+if not hasattr(np, "trapezoid"):        # NumPy < 2.0 exposes this as np.trapz
+    np.trapezoid = np.trapz
 import pandas as pd
 from scipy.signal import butter, find_peaks, iirnotch, lfilter, savgol_filter, welch
 from scipy.stats import kurtosis, skew, entropy

@@ -317,7 +317,7 @@ def main():
         core.quit()
     participant, demographics = session
 
-    win = visual.Window(size=(1400, 900), fullscr=False, color=(12, 14, 53),
+    win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 

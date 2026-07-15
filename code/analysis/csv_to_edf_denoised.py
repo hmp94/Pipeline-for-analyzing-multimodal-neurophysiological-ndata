@@ -1,6 +1,8 @@
 
 import os
 import numpy as np
+if not hasattr(np, "trapezoid"):        # NumPy < 2.0 exposes this as np.trapz
+    np.trapezoid = np.trapz
 import pandas as pd
 from pyedflib import highlevel, FILETYPE_EDFPLUS
 from scipy.signal import butter, lfilter, iirnotch, welch

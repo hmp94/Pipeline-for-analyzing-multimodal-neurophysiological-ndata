@@ -11,7 +11,7 @@ This pipeline takes raw CSV recordings from the Brain-Life device and produces:
 - EEG Focus Index (FI = β/α) timelines
 - fNIRS HbO/HbR concentration changes via Modified Beer–Lambert Law
 - PPG heart rate and signal quality metrics
-- A combined multi-panel summary figure with Mann-Whitney U statistics
+- A combined multi-panel summary figure with paired t-test statistics (task vs adjacent rest)
 
 ---
 
@@ -109,6 +109,13 @@ python code/analysis/eeg_fi_line_chart.py
 python code/analysis/fnirs_analysis.py data/raw/csv/subject.csv
 ```
 
+> **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
+> (as shown above). The standalone charts (`eeg_fi_line_chart.py`, `fnirs_analysis.py`)
+> ignore that flag and always write to the `GRAPH_*` paths defined in
+> `code/analysis/metadata.py`, which are currently absolute (`/Users/minhphan/Documents/Brain-Life/...`).
+> `eeg_fi_line_chart.py` takes no file argument — it batch-processes every EDF in
+> `DATA_EDF_DIR`. Edit `metadata.py` to point these at your own machine.
+
 ---
 
 ## Experiment Tasks
@@ -138,7 +145,7 @@ python code/experiment/stroop_game_psychopy.py
 | 2. fNIRS | Scalp Coupling Index (SCI), SNR, CV, ΔOD, MBLL → HbO/HbR |
 | 3. PPG | SNR, entropy, template matching, perfusion index |
 | 4. FI | Focus Index (β/α) timeline from EDF via sliding-window Welch PSD |
-| 5. Summary | Combined 4-panel figure + Mann-Whitney U statistics table |
+| 5. Summary | Combined 4-panel figure + paired t-test statistics table (task vs adjacent rest) |
 
 ---
 

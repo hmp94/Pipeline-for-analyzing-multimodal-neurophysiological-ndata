@@ -1,5 +1,7 @@
 import os
 import numpy as np
+if not hasattr(np, "trapezoid"):        # NumPy < 2.0 exposes this as np.trapz
+    np.trapezoid = np.trapz
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import pearsonr

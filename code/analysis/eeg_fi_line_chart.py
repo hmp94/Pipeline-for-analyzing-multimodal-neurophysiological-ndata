@@ -1,5 +1,7 @@
 import os
 import numpy as np
+if not hasattr(np, "trapezoid"):        # NumPy < 2.0 exposes this as np.trapz
+    np.trapezoid = np.trapz
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.signal import welch

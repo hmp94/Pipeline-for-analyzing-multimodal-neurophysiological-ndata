@@ -7,6 +7,8 @@ All modality-specific analysis files import from here so logic is defined once.
 import re
 import os
 import numpy as np
+if not hasattr(np, "trapezoid"):        # NumPy < 2.0 exposes this as np.trapz
+    np.trapezoid = np.trapz
 from scipy.stats import ttest_rel
 from metadata import TASK_DUR, REST_DUR, PREFOCUS_DUR
 
