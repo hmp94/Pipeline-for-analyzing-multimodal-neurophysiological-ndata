@@ -2,13 +2,16 @@
 Stroop task (PsychoPy).
 
 Output:  ./results/"Game Result - <participant> Stroop A.csv"
-         trial_number, stimulus, word, color, response, reaction_time, correct
+         trial_number, stimulus, word, color, response,
+         reaction_time, reaction_time_from_onset, correct
          ./results/"Game Result - <participant> Stroop A info.json"  (demographics)
 
 Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          Keys are accepted only after the word disappears.
          Respond to the INK COLOUR: C = blue/green, M = red/yellow.
-         reaction_time is ms from stimulus OFFSET; a timeout logs 2000.
+         reaction_time is ms from stimulus OFFSET (word disappears); a timeout
+         logs 2000.  reaction_time_from_onset is ms from stimulus ONSET (word
+         appears) = reaction_time + stimulus_time, the standard Stroop RT.
          The startup dialog collects demographics only; trial count and
          timings come from settings.json.
 
@@ -153,7 +156,8 @@ def write_results_csv(trial_results, participant_name="anonymous", results_dir_n
 
         filepath = os.path.join(results_dir, f"Game Result - {participant_name} Stroop A.csv")
 
-        fieldnames = ["trial_number", "stimulus", "word", "color", "response", "reaction_time", "correct"]
+        fieldnames = ["trial_number", "stimulus", "word", "color", "response",
+                      "reaction_time", "reaction_time_from_onset", "correct"]
         with open(filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
@@ -300,7 +304,8 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
         "word": word_text,
         "color": stim_key.split("_")[1],
         "response": None,
-        "reaction_time": None,
+        "reaction_time": None,           # ms from stimulus OFFSET (word disappears)
+        "reaction_time_from_onset": None,  # ms from stimulus ONSET (word appears)
         "correct": None,
     }
 
@@ -331,6 +336,9 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
             if k.name in ("c", "m"):
                 trial_data["response"] = k.name
                 trial_data["reaction_time"] = int(round(k.rt * 1000))
+                trial_data["reaction_time_from_onset"] = (
+                    trial_data["reaction_time"] + settings["stimulus_time"]
+                )
                 color_name = trial_data["color"]
                 if k.name == "c":
                     trial_data["correct"] = color_name in ("blue", "green")
@@ -342,6 +350,9 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
         if kb.clock.getTime() > response_limit:
             trial_data["response"] = "timeout"
             trial_data["reaction_time"] = settings["response_time_limit"]
+            trial_data["reaction_time_from_onset"] = (
+                trial_data["reaction_time"] + settings["stimulus_time"]
+            )
             trial_data["correct"] = False
             break
 
