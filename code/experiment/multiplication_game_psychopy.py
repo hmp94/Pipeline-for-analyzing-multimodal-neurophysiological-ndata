@@ -4,9 +4,9 @@ Mental arithmetic task - multiplication (PsychoPy).
 PsychoPy version of the "H2 (Multiply)" task from the NEW_VALID_SUBFOCUS battery
 (arithmetic_multiply/): continuously multiply two 2-digit numbers for 2 minutes.
 
-Output:  ./results/"Game Result - <participant> Multiplication.csv"
-         trial_number, num1, num2, correct_answer, response, reaction_time, correct
-         ./results/"Game Result - <participant> Multiplication info.json"  (demographics)
+Output:  results/<participant>_<timestamp>/task.csv     (task_type == "Multiplication")
+         columns incl. num1, num2, correct_answer, response, reaction_time, correct
+         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Task:    a problem "47 x 58 = ?" stays on screen while the participant types
          the answer (0-9 or numpad); BACKSPACE deletes, ENTER submits.
@@ -21,13 +21,13 @@ Run:     python multiplication_game_psychopy.py     (ESC aborts; partial data is
 
 import os
 import sys
-import csv
 import json
 import random
-from datetime import datetime
 
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
+
+import experiment_io as expio
 
 
 # Drawing uses PsychoPy 'height' units (1.0 == window height, y from -0.5 to +0.5),
@@ -104,47 +104,6 @@ def ensure_settings_defaults(settings):
 # --------------------------------------------------------------------------- #
 # Results
 # --------------------------------------------------------------------------- #
-def write_results_csv(trial_results, participant_name="anonymous", results_dir_name="results"):
-    """Write one row per problem to ./results/."""
-    try:
-        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
-        results_dir = os.path.join(base_dir, results_dir_name)
-        os.makedirs(results_dir, exist_ok=True)
-
-        filepath = os.path.join(results_dir, f"Game Result - {participant_name} {TASK_LABEL}.csv")
-
-        fieldnames = ["task_type", "trial_number", "num1", "num2", "correct_answer", "response",
-                      "reaction_time", "correct"]
-        with open(filepath, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for tr in (trial_results or []):
-                row = {k: tr.get(k) for k in fieldnames}
-                row["task_type"] = TASK_LABEL
-                writer.writerow(row)
-        print(f"Saved: {filepath}")
-    except Exception as e:
-        print(f"Failed to write results CSV: {e}")
-
-
-def write_participant_info(demographics, participant_name="anonymous", task_label=TASK_LABEL,
-                           results_dir_name="results"):
-    """Write the demographics entered at startup next to the results CSV."""
-    try:
-        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
-        results_dir = os.path.join(base_dir, results_dir_name)
-        os.makedirs(results_dir, exist_ok=True)
-
-        filepath = os.path.join(results_dir, f"Game Result - {participant_name} {task_label} info.json")
-        payload = {"task": task_label, "saved_at": datetime.now().isoformat(timespec="seconds"),
-                   **(demographics or {})}
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        print(f"Saved: {filepath}")
-    except Exception as e:
-        print(f"Failed to write participant info: {e}")
-
-
 # --------------------------------------------------------------------------- #
 # Screens
 # --------------------------------------------------------------------------- #
@@ -331,12 +290,14 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
 # --------------------------------------------------------------------------- #
 # Session entry points
 # --------------------------------------------------------------------------- #
-def run(win, kb, participant, demographics, settings=None):
-    """Run the task in an existing window and write results.
+def run(win, kb, participant, demographics, settings=None, rows_out=None):
+    """Run the task in an existing window.
 
     Shared-window entry point used by the session runner: it does not open a
-    dialog or manage the window. Returns a short summary string. On ESC it
-    raises AbortBlock after the collected problems have been saved.
+    dialog, manage the window, or write files. Each problem is appended to
+    rows_out (tagged with task_type) so the caller can save it; a short summary
+    string is returned. On ESC it raises AbortBlock after the collected problems
+    have been placed in rows_out.
     """
     if settings is None:
         settings = ensure_settings_defaults(load_settings())
@@ -356,8 +317,10 @@ def run(win, kb, participant, demographics, settings=None):
             if timed_out:
                 break
     finally:
-        write_results_csv(trial_results, participant)
-        write_participant_info(demographics, participant)
+        for r in trial_results:
+            r.setdefault("task_type", TASK_LABEL)
+        if rows_out is not None:
+            rows_out.extend(trial_results)
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
@@ -381,11 +344,17 @@ def main():
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 
-    summary = ""
+    rows, summary, aborted = [], "", False
     try:
-        summary = run(win, kb, participant, demographics, settings)
+        summary = run(win, kb, participant, demographics, settings, rows_out=rows)
     except AbortBlock:
-        pass  # partial data already saved in run()
+        aborted = True
+
+    session_id, session_dir = expio.make_session_dir(participant)
+    expio.save_session(session_dir, rows, expio.build_metadata(
+        session_id, demographics, task_order=[TASK_LABEL],
+        completed=[] if aborted else [TASK_LABEL], aborted=aborted,
+        results={TASK_LABEL: summary}))
 
     done = visual.TextStim(win, text=f"{TASK_LABEL} Complete!\n{summary}",
                            color=(255, 255, 255), colorSpace="rgb255", height=h(72))

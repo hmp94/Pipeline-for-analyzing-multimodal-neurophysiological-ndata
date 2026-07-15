@@ -5,9 +5,9 @@ PsychoPy version of the "L2 (Story)" task from the NEW_VALID_SUBFOCUS battery,
 which opened a Vietnamese fairy tale web page (Nguyen Khoa Dang) to read for
 2 minutes.  Here the story is shown as pages of text in a PsychoPy window.
 
-Output:  ./results/"Game Result - <participant> Fairy Tale.csv"
+Output:  results/<participant>_<timestamp>/task.csv     (task_type == "Fairy Tale")
          event, page, time_ms      (task_start / page_view / task_end rows)
-         ./results/"Game Result - <participant> Fairy Tale info.json"  (demographics)
+         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Task:    read silently.  SPACE or RIGHT arrow -> next page, LEFT -> previous.
          The task ends automatically after task_duration (default 120 s).
@@ -19,12 +19,12 @@ Run:     python fairy_tale_psychopy.py     (ESC aborts; the event log is saved)
 
 import os
 import sys
-import csv
 import json
-from datetime import datetime
 
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
+
+import experiment_io as expio
 
 
 # Drawing uses PsychoPy 'height' units (1.0 == window height, y from -0.5 to +0.5),
@@ -147,49 +147,6 @@ def paginate(text, chars_per_page):
     if current:
         pages.append(current)
     return pages or [text]
-
-
-# --------------------------------------------------------------------------- #
-# Results
-# --------------------------------------------------------------------------- #
-def write_results_csv(events, participant_name="anonymous", results_dir_name="results"):
-    """Write the page-view event log to ./results/."""
-    try:
-        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
-        results_dir = os.path.join(base_dir, results_dir_name)
-        os.makedirs(results_dir, exist_ok=True)
-
-        filepath = os.path.join(results_dir, f"Game Result - {participant_name} {TASK_LABEL}.csv")
-
-        fieldnames = ["task_type", "event", "page", "time_ms"]
-        with open(filepath, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for ev in (events or []):
-                row = {k: ev.get(k) for k in fieldnames}
-                row["task_type"] = TASK_LABEL
-                writer.writerow(row)
-        print(f"Saved: {filepath}")
-    except Exception as e:
-        print(f"Failed to write results CSV: {e}")
-
-
-def write_participant_info(demographics, participant_name="anonymous", task_label=TASK_LABEL,
-                           results_dir_name="results"):
-    """Write the demographics entered at startup next to the results CSV."""
-    try:
-        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
-        results_dir = os.path.join(base_dir, results_dir_name)
-        os.makedirs(results_dir, exist_ok=True)
-
-        filepath = os.path.join(results_dir, f"Game Result - {participant_name} {task_label} info.json")
-        payload = {"task": task_label, "saved_at": datetime.now().isoformat(timespec="seconds"),
-                   **(demographics or {})}
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        print(f"Saved: {filepath}")
-    except Exception as e:
-        print(f"Failed to write participant info: {e}")
 
 
 # --------------------------------------------------------------------------- #
@@ -327,12 +284,14 @@ def run_reading(win, kb, title, pages, settings, events):
 # --------------------------------------------------------------------------- #
 # Session entry points
 # --------------------------------------------------------------------------- #
-def run(win, kb, participant, demographics, settings=None):
-    """Run the reading task in an existing window and write the event log.
+def run(win, kb, participant, demographics, settings=None, rows_out=None):
+    """Run the reading task in an existing window.
 
     Shared-window entry point used by the session runner: it does not open a
-    dialog or manage the window. Returns a short summary string. On ESC it
-    raises AbortBlock after the collected event log has been saved.
+    dialog, manage the window, or write files. Each page-view event is appended
+    to rows_out (tagged with task_type) so the caller can save it; a short
+    summary string is returned. On ESC it raises AbortBlock after the collected
+    events have been placed in rows_out.
     """
     if settings is None:
         settings = ensure_settings_defaults(load_settings())
@@ -345,8 +304,10 @@ def run(win, kb, participant, demographics, settings=None):
         show_countdown(win, settings, seconds=10)
         run_reading(win, kb, title, pages, settings, events)
     finally:
-        write_results_csv(events, participant)
-        write_participant_info(demographics, participant)
+        for r in events:
+            r.setdefault("task_type", TASK_LABEL)
+        if rows_out is not None:
+            rows_out.extend(events)
 
     pages_read = max((e.get("page") or 0 for e in events if e["event"] == "page_view"),
                      default=0)
@@ -367,10 +328,17 @@ def main():
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 
+    rows, summary, aborted = [], "", False
     try:
-        run(win, kb, participant, demographics, settings)
+        summary = run(win, kb, participant, demographics, settings, rows_out=rows)
     except AbortBlock:
-        pass  # event log already saved in run()
+        aborted = True
+
+    session_id, session_dir = expio.make_session_dir(participant)
+    expio.save_session(session_dir, rows, expio.build_metadata(
+        session_id, demographics, task_order=[TASK_LABEL],
+        completed=[] if aborted else [TASK_LABEL], aborted=aborted,
+        results={TASK_LABEL: summary}))
 
     done = visual.TextStim(win, text="Story Complete!", color=(255, 255, 255),
                            colorSpace="rgb255", height=h(72))

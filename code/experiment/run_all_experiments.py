@@ -11,19 +11,17 @@ the whole session (all data collected so far is saved).
 Because every task shares the one window, the screen never flashes between
 tasks — useful when EEG/fNIRS/PPG are recording continuously.
 
-Output (in ./results/):
-  Game Result - <participant> <Task>.csv        one per task (as when run alone)
-  Game Result - <participant> <Task> info.json  one per task
-  Game Result - <participant> Session.json      session manifest (order + status)
+Output — one folder per session:
+  results/<participant>_<timestamp>/
+    metadata.json   demographics + session info (order, completion, scores)
+    task.csv        every task's trials in one table, keyed by the task_type column
 
 Run:  python run_all_experiments.py
 """
 
 import os
 import sys
-import json
 import random
-from datetime import datetime
 
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
@@ -33,6 +31,7 @@ CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 if CODE_DIR not in sys.path:
     sys.path.insert(0, CODE_DIR)
 
+import experiment_io as expio
 import stroop_game_psychopy as stroop
 import addition_game_psychopy as addition
 import multiplication_game_psychopy as multiplication
@@ -126,35 +125,6 @@ def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
 
 
 # --------------------------------------------------------------------------- #
-# Results
-# --------------------------------------------------------------------------- #
-def write_session_manifest(participant, demographics, order_labels,
-                           completed=None, aborted=False, results=None,
-                           results_dir_name="results"):
-    """Write/overwrite the session manifest recording the randomized order and status."""
-    try:
-        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
-        results_dir = os.path.join(base_dir, results_dir_name)
-        os.makedirs(results_dir, exist_ok=True)
-
-        filepath = os.path.join(results_dir, f"Game Result - {participant} Session.json")
-        payload = {
-            "session": "cognitive-battery",
-            "saved_at": datetime.now().isoformat(timespec="seconds"),
-            "task_order": order_labels,
-            "completed": completed if completed is not None else [],
-            "aborted": aborted,
-            "results": results if results is not None else {},
-            **(demographics or {}),
-        }
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        print(f"Saved: {filepath}")
-    except Exception as e:
-        print(f"Failed to write session manifest: {e}")
-
-
-# --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
 def main():
@@ -169,15 +139,23 @@ def main():
     random.shuffle(order)
     order_labels = [m.TASK_LABEL for m in order]
     print(f"Session order: {' -> '.join(order_labels)}")
-    write_session_manifest(participant, demographics, order_labels)
+
+    # One folder per session: results/<participant>_<timestamp>/{metadata.json, task.csv}
+    session_id, session_dir = expio.make_session_dir(participant)
+    all_rows = []           # every task's trials/events, combined; keyed by task_type
+    summaries = []          # (label, summary string) per completed task
+    completed_labels = []
+    aborted = False
+
+    def save():
+        expio.save_session(session_dir, all_rows, expio.build_metadata(
+            session_id, demographics, order_labels, completed_labels,
+            aborted, dict(summaries)))
 
     win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 
-    summaries = []          # (label, summary string) per completed task
-    completed_labels = []
-    aborted = False
     try:
         show_message(
             win, kb,
@@ -195,15 +173,14 @@ def main():
                 [f"Task {i + 1} of {len(order)}", "", f"Next: {label}", "Get ready…"],
                 seconds=INTER_TASK_REST_S,
             )
-            summary = module.run(win, kb, participant, demographics)
+            summary = module.run(win, kb, participant, demographics, rows_out=all_rows)
             summaries.append((label, summary))
             completed_labels.append(label)
+            save()          # persist after each task so a crash never loses data
     except (AbortSession,) + ABORT_EXCEPTIONS:
         aborted = True
 
-    write_session_manifest(participant, demographics, order_labels,
-                           completed=completed_labels, aborted=aborted,
-                           results=dict(summaries))
+    save()
 
     final_lines = ["Session ended early" if aborted else "All tasks complete!", ""]
     final_lines += [f"{label}:  {summary}" for label, summary in summaries] or ["(no tasks recorded)"]
