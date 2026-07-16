@@ -48,6 +48,31 @@ def h(px):
     return px / REF_H
 
 
+def make_time_bar(win, width=1.2, y=-0.45, thickness=0.016):
+    """Create a depleting time bar; return update(frac) that draws it each frame.
+
+    frac is the fraction of time REMAINING (1.0 = full, 0.0 = empty). The bar
+    shrinks from full width toward the left as time runs out and turns red when
+    nearly empty (running low = out of time). Call update(frac) before win.flip().
+    """
+    left = -width / 2.0
+    bg = visual.Rect(win, width=width, height=thickness, pos=(0, y),
+                     fillColor=(70, 70, 70), lineColor=None, colorSpace="rgb255")
+    fg = visual.Rect(win, width=width, height=thickness, pos=(0, y),
+                     fillColor=(120, 200, 120), lineColor=None, colorSpace="rgb255")
+
+    def update(frac):
+        frac = min(1.0, max(0.0, frac))
+        w = max(1e-4, width * frac)
+        fg.width = w
+        fg.pos = (left + w / 2.0, y)
+        fg.fillColor = (210, 120, 120) if frac <= 0.2 else (120, 200, 120)
+        bg.draw()
+        fg.draw()
+
+    return update
+
+
 # --------------------------------------------------------------------------- #
 # Settings
 # --------------------------------------------------------------------------- #
@@ -134,17 +159,15 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings, auto_advance_s=7.0):
+def show_instructions(win, kb, settings, auto_advance_s=30.0):
     """Instruction screen; auto-advances after auto_advance_s seconds.
 
-    No key press is required to proceed. SPACE skips the wait early; ESC aborts.
+    A depleting time bar (not a number) shows how much reading time is left;
+    when it empties the task starts. SPACE is an experimenter early-skip; ESC aborts.
     """
     fs = settings["font_sizes"]
     white = (255, 255, 255)
 
-    footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
-                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6,
-                             font="Arial")
     stims = [
         visual.TextStim(win, text="Phép nhân", color=white, colorSpace="rgb255",
                         height=h(fs["title"]), pos=(0, 0.32), font="Arial"),
@@ -156,6 +179,10 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
                         pos=(0, 0.0), wrapWidth=1.6, font="Arial"),
     ]
+    hint = visual.TextStim(win, text="Bài tập sẽ tự bắt đầu khi thanh thời gian kết thúc.",
+                           color=(160, 160, 160), colorSpace="rgb255",
+                           height=h(34), pos=(0, -0.36), font="Arial")
+    update_time_bar = make_time_bar(win)
 
     kb.clearEvents()
     clock = core.Clock()
@@ -163,10 +190,10 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
         remaining = auto_advance_s - clock.getTime()
         if remaining <= 0:
             return
-        footer.text = f"Bắt đầu sau {int(remaining) + 1} giây…"
         for s in stims:
             s.draw()
-        footer.draw()
+        hint.draw()
+        update_time_bar(remaining / auto_advance_s)
         win.flip()
 
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
@@ -273,7 +300,7 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
     # --- Feedback ---
     if trial_data["response"] == "timeout":
         # Neutral gray, not amber, so "no response" never reads as a colour cue.
-        fb_text, fb_color = f"Không phản hồi — Đáp án: {answer}", (180, 180, 180)
+        fb_text, fb_color = f"Phản hồi chậm — Đáp án: {answer}", (180, 180, 180)
     elif trial_data["correct"]:
         fb_text, fb_color = "Đúng!", (0, 255, 0)
     else:
@@ -326,9 +353,9 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
-    summary = f"{correct}/{len(trial_results)} đúng"
+    summary = f"{correct}/{len(trial_results)} trả lời đúng"
     if no_resp:
-        summary += f", {no_resp} không phản hồi"
+        summary += f", {no_resp} phản hồi chậm"
     return summary
 
 

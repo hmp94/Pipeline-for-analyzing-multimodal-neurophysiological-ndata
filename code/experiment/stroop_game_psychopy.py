@@ -45,6 +45,31 @@ def h(px):
     return px / REF_H
 
 
+def make_time_bar(win, width=1.2, y=-0.46, thickness=0.016):
+    """Create a depleting time bar; return update(frac) that draws it each frame.
+
+    frac is the fraction of time REMAINING (1.0 = full, 0.0 = empty). The bar
+    shrinks from full width toward the left as time runs out and turns red when
+    nearly empty (running low = out of time). Call update(frac) before win.flip().
+    """
+    left = -width / 2.0
+    bg = visual.Rect(win, width=width, height=thickness, pos=(0, y),
+                     fillColor=(70, 70, 70), lineColor=None, colorSpace="rgb255")
+    fg = visual.Rect(win, width=width, height=thickness, pos=(0, y),
+                     fillColor=(120, 200, 120), lineColor=None, colorSpace="rgb255")
+
+    def update(frac):
+        frac = min(1.0, max(0.0, frac))
+        w = max(1e-4, width * frac)
+        fg.width = w
+        fg.pos = (left + w / 2.0, y)
+        fg.fillColor = (210, 120, 120) if frac <= 0.2 else (120, 200, 120)
+        bg.draw()
+        fg.draw()
+
+    return update
+
+
 # --------------------------------------------------------------------------- #
 # Settings
 # --------------------------------------------------------------------------- #
@@ -181,8 +206,8 @@ def get_session_info():
 def show_instructions(win, kb, settings, auto_advance_s=30.0):
     """Instruction screen; auto-advances after auto_advance_s seconds.
 
-    No key press is required to proceed and no countdown is shown. SPACE skips
-    ahead; ESC aborts.
+    A depleting time bar (not a number) shows how much reading time is left;
+    when it empties the task starts. SPACE is an experimenter early-skip; ESC aborts.
     """
     white = (255, 255, 255)
 
@@ -203,16 +228,15 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
             text=("Phản hồi theo MÀU CỦA CHỮ, không theo nghĩa của từ.\n"
                   "\n"
                   "Mỗi từ xuất hiện rất ngắn rồi biến mất.\n"
-                  "Bàn phím chỉ được ghi nhận sau khi chữ biến mất — hãy\n"
-                  "chờ chữ tắt rồi nhấn phím nhanh và chính xác nhất có\n"
+                  "hãy chờ chữ tắt rồi nhấn phím nhanh và chính xác nhất có\n"
                   "thể. Mỗi từ nhấn một phím."),
             color=white, colorSpace="rgb255", height=h(42),
             pos=(0, 0.20), wrapWidth=1.5, alignText="center", font="Arial"),
         visual.TextStim(win, text="Phản hồi theo màu chữ:", color=(200, 200, 200),
                         colorSpace="rgb255", height=h(38), pos=(0, -0.02), font="Arial"),
-        visual.TextStim(win, text="Bài tập sẽ tự bắt đầu.  Nhấn SPACE để bắt đầu ngay.",
+        visual.TextStim(win, text="Bài tập sẽ tự bắt đầu khi thanh thời gian kết thúc.",
                         color=(160, 160, 160), colorSpace="rgb255", height=h(34),
-                        pos=(0, -0.44), wrapWidth=1.7, font="Arial"),
+                        pos=(0, -0.40), wrapWidth=1.7, font="Arial"),
     ]
     for colour, tail, y in rows:
         stims.append(visual.TextStim(win, text="MÀU", color=colour, colorSpace="rgb255",
@@ -221,14 +245,17 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
         stims.append(visual.TextStim(win, text=tail, color=white, colorSpace="rgb255",
                                      height=h(52), anchorHoriz="left",
                                      alignText="left", pos=(gap, y), font="Arial"))
+    update_time_bar = make_time_bar(win)
 
     kb.clearEvents()
     clock = core.Clock()
     while True:
-        if clock.getTime() >= auto_advance_s:
+        remaining = auto_advance_s - clock.getTime()
+        if remaining <= 0:
             return
         for s in stims:
             s.draw()
+        update_time_bar(remaining / auto_advance_s)
         win.flip()
 
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
@@ -332,7 +359,7 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
     # --- Feedback / ITI ---
     if trial_data["response"] == "timeout":
         # Neutral gray, not amber: amber overlaps the yellow stimulus colour.
-        fb = visual.TextStim(win, text="Không phản hồi", color=(180, 180, 180),
+        fb = visual.TextStim(win, text="Phản hồi chậm", color=(180, 180, 180),
                              colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
     else:
         fb = visual.TextStim(win, text="Đúng" if trial_data["correct"] else "Sai",
@@ -392,9 +419,9 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
-    summary = f"{correct}/{len(trial_results)} đúng"
+    summary = f"{correct}/{len(trial_results)} trả lời đúng"
     if no_resp:
-        summary += f", {no_resp} không phản hồi"
+        summary += f", {no_resp} phản hồi chậm"
     return summary
 
 

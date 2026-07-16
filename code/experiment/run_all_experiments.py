@@ -105,18 +105,19 @@ def get_session_info():
 # --------------------------------------------------------------------------- #
 # Screens
 # --------------------------------------------------------------------------- #
-def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
-    """Auto-advancing message screen.
+def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
+    """Auto-advancing message screen (no countdown shown).
 
-    Displays `lines` (a list of strings) for `seconds`, then returns. With
-    countdown=True a live "Continuing in N…" footer shows the remaining time.
-    SPACE returns early when allow_skip is set; ESC raises AbortSession.
+    Displays `lines` (a list of strings) for `seconds`, then returns. No timer or
+    countdown is shown. With skip_hint=True a static "Nhấn SPACE để kết thúc"
+    footer is shown (used on the final screen). SPACE returns early when
+    allow_skip is set; ESC raises AbortSession.
     """
     body = visual.TextStim(win, text="\n".join(lines), color=(255, 255, 255),
                            colorSpace="rgb255", height=h(60), pos=(0, 0.06),
                            wrapWidth=1.6, alignText="center", font="Arial")
-    footer = visual.TextStim(win, text="", color=(160, 160, 160), colorSpace="rgb255",
-                             height=h(34), pos=(0, -0.40), font="Arial")
+    footer = visual.TextStim(win, text="Nhấn SPACE để kết thúc", color=(160, 160, 160),
+                             colorSpace="rgb255", height=h(34), pos=(0, -0.40), font="Arial")
 
     kb.clearEvents()
     clock = core.Clock()
@@ -124,12 +125,8 @@ def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
         remaining = seconds - clock.getTime()
         if remaining <= 0:
             return
-        if countdown:
-            footer.text = f"Tiếp tục sau {int(remaining) + 1} giây…"
-        elif allow_skip:
-            footer.text = "Nhấn SPACE để kết thúc"
         body.draw()
-        if footer.text:
+        if skip_hint and allow_skip:
             footer.draw()
         win.flip()
 
@@ -218,8 +215,8 @@ def main():
              "",
              "Trước tiên là phần đo trạng thái nền (ngồi yên, mở mắt),",
              "sau đó là bốn bài tập ngắn, thực hiện lần lượt.",
-             "Mọi thứ diễn ra tự động — bạn chỉ cần làm theo",
-             "hướng dẫn hiển thị trước mỗi bài tập."],
+             "Mọi thứ diễn ra tự động — bạn chỉ thực hiện theo",
+             "hướng dẫn trên màn hình trước mỗi bài tập."],
             seconds=WELCOME_S,
         )
 
@@ -260,7 +257,7 @@ def main():
     final_lines = ["Buổi đo kết thúc sớm" if aborted else "Hoàn thành tất cả bài tập!", ""]
     final_lines += [f"{label}:  {summary}" for label, summary in summaries] or ["(chưa ghi được bài tập nào)"]
     try:
-        show_message(win, kb, final_lines, seconds=FINAL_S, countdown=False, allow_skip=True)
+        show_message(win, kb, final_lines, seconds=FINAL_S, allow_skip=True, skip_hint=True)
     except AbortSession:
         pass
 
