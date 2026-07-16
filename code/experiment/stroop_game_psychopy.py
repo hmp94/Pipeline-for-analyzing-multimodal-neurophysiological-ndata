@@ -12,8 +12,11 @@ Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          reaction_time is ms from stimulus OFFSET (word disappears); a timeout
          logs 2000.  reaction_time_from_onset is ms from stimulus ONSET (word
          appears) = reaction_time + stimulus_time, the standard Stroop RT.
-         The startup dialog collects demographics only; trial count and
-         timings come from settings.json.
+         The block runs for task_duration (default 120 s) — trials are drawn
+         from balanced 24-trial sets (12 congruent + 12 incongruent), regenerated
+         as needed, until the timer expires; a trial already in progress finishes.
+         The startup dialog collects demographics only; durations come from
+         settings.json.
 
 Run:     python stroop_game_psychopy.py     (ESC aborts a block; partial data is saved)
 """
@@ -63,7 +66,8 @@ def get_default_settings():
             "green": (0, 255, 0),
             "yellow": (255, 255, 0),
         },
-        "num_trials": 24,
+        "task_duration": 120000,  # ms, whole block; overrides num_trials as the stop rule
+        "num_trials": 24,         # size of each balanced set drawn from during the block
         "stimulus_time": 250,
         "inter_trial_interval": 500,
         "fixation_time": 250,
@@ -360,14 +364,25 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     stimuli_dict = create_stimuli(words, settings["colors"])
     stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
 
+    duration_s = settings.get("task_duration", 120000) / 1000.0
+
     trial_results = []
     try:
         show_instructions(win, kb, settings)
         show_countdown(win, settings, seconds=10)
-        for i, stim_key in enumerate(trial_order):
-            trial_results.append(
-                run_trial(win, kb, stimuli, stim_key, i, settings)
-            )
+        # Run for a fixed duration rather than a fixed trial count: draw from the
+        # balanced set, regenerating a fresh shuffled set whenever it runs out.
+        # The timer is checked between trials, so the last trial finishes cleanly.
+        task_clock = core.Clock()
+        pool, pool_idx, i = list(trial_order), 0, 0
+        while task_clock.getTime() < duration_s:
+            if pool_idx >= len(pool):
+                _, pool = create_trial_order(stimuli_dict, settings["num_trials"])
+                pool_idx = 0
+            stim_key = pool[pool_idx]
+            pool_idx += 1
+            trial_results.append(run_trial(win, kb, stimuli, stim_key, i, settings))
+            i += 1
     finally:
         for r in trial_results:
             r.setdefault("task_type", TASK_LABEL)

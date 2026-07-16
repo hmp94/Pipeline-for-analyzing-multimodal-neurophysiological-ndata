@@ -1,12 +1,26 @@
 """
-run_all_experiments.py — single-session runner for the four cognitive tasks.
+run_all_experiments.py — single-session runner for the focus-state protocol.
 
-Shows ONE demographics dialog, opens ONE window, then runs all four tasks
-(Stroop, Addition, Multiplication, Fairy Tale) back-to-back in a RANDOMIZED
-order. Transitions are automatic: after the demographics dialog the participant
-never has to press a key to advance — each screen counts down and moves on by
-itself. SPACE is only an optional early-skip for the experimenter; ESC aborts
-the whole session (all data collected so far is saved).
+This is a self-contained 4-task experiment. Its timeline follows the participant
+instruction document ("Hướng dẫn thực hiện thử nghiệm trạng thái tập trung"); it
+is NOT the acquisition software behind the 12-task battery that code/analysis/
+processes, so it does not read from or need to match code/analysis/metadata.py.
+
+Shows ONE demographics dialog, opens ONE window, then runs:
+
+    baseline (eyes open, 120 s)
+      -> countdown (10 s) -> task 1 (120 s)
+      -> rest (60 s) -> countdown (10 s) -> task 2 (120 s)
+      -> rest (60 s) -> countdown (10 s) -> task 3 ...
+
+The four cognitive tasks (Stroop, Addition, Multiplication, Fairy Tale) run in a
+RANDOMIZED order; each lasts ~120 s. There is NO rest before the first task (the
+baseline flows straight into the first countdown), and NO rest after the last.
+
+Transitions are automatic: after the demographics dialog the participant never
+has to press a key to advance — each screen counts down and moves on by itself.
+SPACE is only an optional early-skip for the experimenter; ESC aborts the whole
+session (all data collected so far is saved).
 
 Because every task shares the one window, the screen never flashes between
 tasks — useful when EEG/fNIRS/PPG are recording continuously.
@@ -15,6 +29,7 @@ Output — one folder per session:
   results/<participant>_<timestamp>/
     metadata.json   demographics + session info (order, completion, scores)
     task.csv        every task's trials in one table, keyed by the task_type column
+                    (the baseline logs baseline_start/baseline_end marker rows)
 
 Run:  python run_all_experiments.py
 """
@@ -39,7 +54,8 @@ import fairy_tale_psychopy as fairy_tale
 
 
 REF_H = 1080.0                 # font sizes below are pixels for a 1080px-tall screen
-INTER_TASK_REST_S = 5.0        # auto-advancing gap shown before each task
+BASELINE_S = 120.0             # resting baseline, eyes open (per the instruction doc)
+REST_S = 60.0                  # rest between tasks, 1 min (per the instruction doc)
 WELCOME_S = 6.0                # auto-advancing welcome screen
 FINAL_S = 8.0                  # final summary screen (SPACE closes early)
 
@@ -124,6 +140,44 @@ def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
                 return
 
 
+def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
+    """Resting baseline: eyes open, no task, for `seconds`.
+
+    Shows a fixation cross with a short reminder and holds for the full duration.
+    SPACE is an experimenter early-skip; ESC raises AbortSession. Logs
+    baseline_start / baseline_end marker rows into rows_out.
+    """
+    fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
+                               colorSpace="rgb255", height=h(100), pos=(0, 0.02))
+    caption = visual.TextStim(win, text="Baseline — eyes open, relax, stay still",
+                              color=(160, 160, 160), colorSpace="rgb255",
+                              height=h(40), pos=(0, -0.34))
+
+    events = [{"task_type": "Baseline", "event": "baseline_start", "time_ms": 0}]
+    kb.clearEvents()
+    clock = core.Clock()
+    skipped = False
+    while clock.getTime() < seconds:
+        fixation.draw()
+        caption.draw()
+        win.flip()
+        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+            if k.name == "escape":
+                events.append({"task_type": "Baseline", "event": "baseline_aborted",
+                               "time_ms": int(round(clock.getTime() * 1000))})
+                rows_out.extend(events)
+                raise AbortSession
+            if k.name == "space":
+                skipped = True
+        if skipped:
+            break
+
+    events.append({"task_type": "Baseline", "event": "baseline_end",
+                   "time_ms": int(round(clock.getTime() * 1000))})
+    rows_out.extend(events)
+    return "recorded"
+
+
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
@@ -137,7 +191,8 @@ def main():
 
     order = TASKS[:]
     random.shuffle(order)
-    order_labels = [m.TASK_LABEL for m in order]
+    task_labels = [m.TASK_LABEL for m in order]
+    order_labels = ["Baseline"] + task_labels
     print(f"Session order: {' -> '.join(order_labels)}")
 
     # One folder per session: results/<participant>_<timestamp>/{metadata.json, task.csv}
@@ -161,18 +216,38 @@ def main():
             win, kb,
             ["Welcome",
              "",
-             "Four short tasks will run one after another.",
-             "They begin automatically — just follow the",
-             "instructions shown before each task."],
+             "First a short baseline (sit still, eyes open),",
+             "then four short tasks, one after another.",
+             "Everything begins automatically — just follow",
+             "the instructions shown before each task."],
             seconds=WELCOME_S,
         )
+
+        # F0 resting baseline — first, no rest before it.
+        show_message(
+            win, kb,
+            ["Baseline", "",
+             "Sit still and keep your eyes open.",
+             "Relax but stay awake. Do not press any key.",
+             "Recording starts when the + appears."],
+            seconds=WELCOME_S,
+        )
+        summaries.append(("Baseline", run_baseline(win, kb, all_rows)))
+        completed_labels.append("Baseline")
+        save()
+
         for i, module in enumerate(order):
             label = module.TASK_LABEL
-            show_message(
-                win, kb,
-                [f"Task {i + 1} of {len(order)}", "", f"Next: {label}", "Get ready…"],
-                seconds=INTER_TASK_REST_S,
-            )
+            if i > 0:
+                # Rest only BETWEEN tasks (never before the first). The 10 s
+                # pre-focus is each task's own countdown, shown inside module.run.
+                show_message(
+                    win, kb,
+                    ["Rest", "",
+                     "Sit still, eyes open, relax.",
+                     "The next task will start shortly."],
+                    seconds=REST_S,
+                )
             summary = module.run(win, kb, participant, demographics, rows_out=all_rows)
             summaries.append((label, summary))
             completed_labels.append(label)
