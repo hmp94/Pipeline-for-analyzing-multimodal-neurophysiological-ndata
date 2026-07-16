@@ -114,9 +114,9 @@ def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
     """
     body = visual.TextStim(win, text="\n".join(lines), color=(255, 255, 255),
                            colorSpace="rgb255", height=h(60), pos=(0, 0.06),
-                           wrapWidth=1.6, alignText="center")
+                           wrapWidth=1.6, alignText="center", font="Arial")
     footer = visual.TextStim(win, text="", color=(160, 160, 160), colorSpace="rgb255",
-                             height=h(34), pos=(0, -0.40))
+                             height=h(34), pos=(0, -0.40), font="Arial")
 
     kb.clearEvents()
     clock = core.Clock()
@@ -125,9 +125,9 @@ def show_message(win, kb, lines, seconds, countdown=True, allow_skip=True):
         if remaining <= 0:
             return
         if countdown:
-            footer.text = f"Continuing in {int(remaining) + 1}…"
+            footer.text = f"Tiếp tục sau {int(remaining) + 1} giây…"
         elif allow_skip:
-            footer.text = "Press SPACE to finish"
+            footer.text = "Nhấn SPACE để kết thúc"
         body.draw()
         if footer.text:
             footer.draw()
@@ -149,9 +149,9 @@ def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
     """
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
                                colorSpace="rgb255", height=h(100), pos=(0, 0.02))
-    caption = visual.TextStim(win, text="Baseline — eyes open, relax, stay still",
+    caption = visual.TextStim(win, text="Trạng thái nền — mở mắt, thư giãn, giữ yên",
                               color=(160, 160, 160), colorSpace="rgb255",
-                              height=h(40), pos=(0, -0.34))
+                              height=h(40), pos=(0, -0.34), font="Arial")
 
     events = [{"task_type": "Baseline", "event": "baseline_start", "time_ms": 0}]
     kb.clearEvents()
@@ -175,7 +175,7 @@ def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
     events.append({"task_type": "Baseline", "event": "baseline_end",
                    "time_ms": int(round(clock.getTime() * 1000))})
     rows_out.extend(events)
-    return "recorded"
+    return "đã ghi"
 
 
 # --------------------------------------------------------------------------- #
@@ -214,22 +214,22 @@ def main():
     try:
         show_message(
             win, kb,
-            ["Welcome",
+            ["Chào mừng bạn",
              "",
-             "First a short baseline (sit still, eyes open),",
-             "then four short tasks, one after another.",
-             "Everything begins automatically — just follow",
-             "the instructions shown before each task."],
+             "Trước tiên là phần đo trạng thái nền (ngồi yên, mở mắt),",
+             "sau đó là bốn bài tập ngắn, thực hiện lần lượt.",
+             "Mọi thứ diễn ra tự động — bạn chỉ cần làm theo",
+             "hướng dẫn hiển thị trước mỗi bài tập."],
             seconds=WELCOME_S,
         )
 
         # F0 resting baseline — first, no rest before it.
         show_message(
             win, kb,
-            ["Baseline", "",
-             "Sit still and keep your eyes open.",
-             "Relax but stay awake. Do not press any key.",
-             "Recording starts when the + appears."],
+            ["Trạng thái nền", "",
+             "Ngồi yên và giữ mắt mở.",
+             "Thư giãn nhưng vẫn tỉnh táo. Không nhấn phím nào.",
+             "Bắt đầu ghi khi dấu + xuất hiện."],
             seconds=WELCOME_S,
         )
         summaries.append(("Baseline", run_baseline(win, kb, all_rows)))
@@ -243,9 +243,9 @@ def main():
                 # pre-focus is each task's own countdown, shown inside module.run.
                 show_message(
                     win, kb,
-                    ["Rest", "",
-                     "Sit still, eyes open, relax.",
-                     "The next task will start shortly."],
+                    ["Nghỉ", "",
+                     "Ngồi yên, mở mắt, thư giãn.",
+                     "Bài tập tiếp theo sẽ sớm bắt đầu."],
                     seconds=REST_S,
                 )
             summary = module.run(win, kb, participant, demographics, rows_out=all_rows)
@@ -257,8 +257,8 @@ def main():
 
     save()
 
-    final_lines = ["Session ended early" if aborted else "All tasks complete!", ""]
-    final_lines += [f"{label}:  {summary}" for label, summary in summaries] or ["(no tasks recorded)"]
+    final_lines = ["Buổi đo kết thúc sớm" if aborted else "Hoàn thành tất cả bài tập!", ""]
+    final_lines += [f"{label}:  {summary}" for label, summary in summaries] or ["(chưa ghi được bài tập nào)"]
     try:
         show_message(win, kb, final_lines, seconds=FINAL_S, countdown=False, allow_skip=True)
     except AbortSession:

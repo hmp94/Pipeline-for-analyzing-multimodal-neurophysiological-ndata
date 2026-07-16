@@ -186,41 +186,41 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
     """
     white = (255, 255, 255)
 
-    # (ink colour, key label, y) — the "COLOR" word is printed in that ink.
+    # (ink colour, key label, y) — the "MÀU" sample word is printed in that ink.
     rows = [
-        ((0, 0, 255),   "=>  press  C", -0.09),
-        ((0, 255, 0),   "=>  press  C", -0.15),
-        ((255, 0, 0),   "=>  press  M", -0.21),
-        ((255, 255, 0), "=>  press  M", -0.27),
+        ((0, 0, 255),   "=>  nhấn  C", -0.09),
+        ((0, 255, 0),   "=>  nhấn  C", -0.15),
+        ((255, 0, 0),   "=>  nhấn  M", -0.21),
+        ((255, 255, 0), "=>  nhấn  M", -0.27),
     ]
     gap = 0.012
 
     stims = [
-        visual.TextStim(win, text="Stroop Task", color=white, colorSpace="rgb255",
-                        height=h(88), pos=(0, 0.44)),
+        visual.TextStim(win, text="Bài tập Stroop", color=white, colorSpace="rgb255",
+                        height=h(88), pos=(0, 0.44), font="Arial"),
         visual.TextStim(
             win,
-            text=("Respond to the COLOUR OF THE INK, not the word.\n"
+            text=("Phản hồi theo MÀU CỦA CHỮ, không theo nghĩa của từ.\n"
                   "\n"
-                  "Each word flashes briefly, then disappears.\n"
-                  "Keys are ignored while the word is on screen — wait for\n"
-                  "it to disappear, then press as fast and accurately as\n"
-                  "you can. Give one key press per word."),
+                  "Mỗi từ xuất hiện rất ngắn rồi biến mất.\n"
+                  "Bàn phím chỉ được ghi nhận sau khi chữ biến mất — hãy\n"
+                  "chờ chữ tắt rồi nhấn phím nhanh và chính xác nhất có\n"
+                  "thể. Mỗi từ nhấn một phím."),
             color=white, colorSpace="rgb255", height=h(42),
-            pos=(0, 0.20), wrapWidth=1.5, alignText="center"),
-        visual.TextStim(win, text="Respond to the ink colour:", color=(200, 200, 200),
-                        colorSpace="rgb255", height=h(38), pos=(0, -0.02)),
-        visual.TextStim(win, text="The task starts automatically.  Press SPACE to begin now.",
+            pos=(0, 0.20), wrapWidth=1.5, alignText="center", font="Arial"),
+        visual.TextStim(win, text="Phản hồi theo màu chữ:", color=(200, 200, 200),
+                        colorSpace="rgb255", height=h(38), pos=(0, -0.02), font="Arial"),
+        visual.TextStim(win, text="Bài tập sẽ tự bắt đầu.  Nhấn SPACE để bắt đầu ngay.",
                         color=(160, 160, 160), colorSpace="rgb255", height=h(34),
-                        pos=(0, -0.44), wrapWidth=1.7),
+                        pos=(0, -0.44), wrapWidth=1.7, font="Arial"),
     ]
     for colour, tail, y in rows:
-        stims.append(visual.TextStim(win, text="COLOR", color=colour, colorSpace="rgb255",
+        stims.append(visual.TextStim(win, text="MÀU", color=colour, colorSpace="rgb255",
                                      height=h(52), anchorHoriz="right",
-                                     alignText="right", pos=(-gap, y)))
+                                     alignText="right", pos=(-gap, y), font="Arial"))
         stims.append(visual.TextStim(win, text=tail, color=white, colorSpace="rgb255",
                                      height=h(52), anchorHoriz="left",
-                                     alignText="left", pos=(gap, y)))
+                                     alignText="left", pos=(gap, y), font="Arial"))
 
     kb.clearEvents()
     clock = core.Clock()
@@ -331,12 +331,13 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
 
     # --- Feedback / ITI ---
     if trial_data["response"] == "timeout":
-        fb = visual.TextStim(win, text="No response", color=(255, 200, 0),
-                             colorSpace="rgb255", height=h(fs["feedback"]))
+        # Neutral gray, not amber: amber overlaps the yellow stimulus colour.
+        fb = visual.TextStim(win, text="Không phản hồi", color=(180, 180, 180),
+                             colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
     else:
-        fb = visual.TextStim(win, text="Correct" if trial_data["correct"] else "Wrong",
+        fb = visual.TextStim(win, text="Đúng" if trial_data["correct"] else "Sai",
                              color=(255, 255, 255), colorSpace="rgb255",
-                             height=h(fs["feedback"]))
+                             height=h(fs["feedback"]), font="Arial")
     fb.draw()
     win.flip()
     core.wait(iti)
@@ -391,9 +392,9 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
-    summary = f"{correct}/{len(trial_results)} correct"
+    summary = f"{correct}/{len(trial_results)} đúng"
     if no_resp:
-        summary += f", {no_resp} no response"
+        summary += f", {no_resp} không phản hồi"
     return summary
 
 
@@ -423,8 +424,8 @@ def main():
         completed=[] if aborted else [TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
-    done = visual.TextStim(win, text=f"{TASK_LABEL} Complete!", color=(255, 255, 255),
-                           colorSpace="rgb255", height=h(72))
+    done = visual.TextStim(win, text="Hoàn thành!", color=(255, 255, 255),
+                           colorSpace="rgb255", height=h(72), font="Arial")
     done.draw()
     win.flip()
     core.wait(2.0)

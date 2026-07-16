@@ -188,18 +188,19 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
     white = (255, 255, 255)
 
     stims = [
-        visual.TextStim(win, text="Story Reading", color=white, colorSpace="rgb255",
-                        height=h(fs["title"]), pos=(0, 0.32)),
+        visual.TextStim(win, text="Đọc truyện", color=white, colorSpace="rgb255",
+                        height=h(fs["title"]), pos=(0, 0.32), font="Arial"),
         visual.TextStim(win,
-                        text=("Read the story silently at your own pace.\n\n"
-                              "SPACE or RIGHT arrow: next page\n"
-                              "LEFT arrow: previous page\n\n"
-                              "The task ends automatically."),
+                        text=("Đọc thầm câu chuyện theo tốc độ của bạn.\n\n"
+                              "SPACE hoặc mũi tên phải: trang sau\n"
+                              "Mũi tên trái: trang trước\n\n"
+                              "Bài tập sẽ tự kết thúc."),
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
-                        pos=(0, 0.0), wrapWidth=1.6),
+                        pos=(0, 0.0), wrapWidth=1.6, font="Arial"),
     ]
     footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
-                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6)
+                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6,
+                             font="Arial")
 
     kb.clearEvents()
     clock = core.Clock()
@@ -207,7 +208,7 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
         remaining = auto_advance_s - clock.getTime()
         if remaining <= 0:
             return
-        footer.text = f"Starting in {int(remaining) + 1}…"
+        footer.text = f"Bắt đầu sau {int(remaining) + 1} giây…"
         for s in stims:
             s.draw()
         footer.draw()
@@ -256,7 +257,7 @@ def run_reading(win, kb, title, pages, settings, events):
     while task_clock.getTime() < duration_s:
         if page_idx != shown_page:
             body_stim.text = pages[page_idx]
-            hint_stim.text = f"SPACE / →  next page      ←  previous      ({page_idx + 1}/{len(pages)})"
+            hint_stim.text = f"SPACE / →  trang sau      ←  trang trước      ({page_idx + 1}/{len(pages)})"
             events.append({"event": "page_view", "page": page_idx + 1,
                            "time_ms": int(round(task_clock.getTime() * 1000))})
             shown_page = page_idx
@@ -311,7 +312,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     pages_read = max((e.get("page") or 0 for e in events if e["event"] == "page_view"),
                      default=0)
-    return f"{pages_read}/{len(pages)} pages"
+    return f"{pages_read}/{len(pages)} trang"
 
 
 def main():
@@ -340,8 +341,8 @@ def main():
         completed=[] if aborted else [TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
-    done = visual.TextStim(win, text="Story Complete!", color=(255, 255, 255),
-                           colorSpace="rgb255", height=h(72))
+    done = visual.TextStim(win, text="Hoàn thành phần đọc!", color=(255, 255, 255),
+                           colorSpace="rgb255", height=h(72), font="Arial")
     done.draw()
     win.flip()
     core.wait(2.0)

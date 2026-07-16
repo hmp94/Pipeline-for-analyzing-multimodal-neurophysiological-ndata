@@ -143,17 +143,18 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
     white = (255, 255, 255)
 
     footer = visual.TextStim(win, text="", color=white, colorSpace="rgb255",
-                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6)
+                             height=h(fs["instruction"]), pos=(0, -0.38), wrapWidth=1.6,
+                             font="Arial")
     stims = [
-        visual.TextStim(win, text=TASK_LABEL, color=white, colorSpace="rgb255",
-                        height=h(fs["title"]), pos=(0, 0.32)),
+        visual.TextStim(win, text="Phép nhân", color=white, colorSpace="rgb255",
+                        height=h(fs["title"]), pos=(0, 0.32), font="Arial"),
         visual.TextStim(win,
-                        text=("Multiply the two numbers shown on screen.\n\n"
-                              "Type your answer with the number keys.\n"
-                              "BACKSPACE deletes a digit, ENTER submits.\n\n"
-                              "Keep solving problems until the time runs out."),
+                        text=("Nhân hai số hiển thị trên màn hình.\n\n"
+                              "Nhập đáp án bằng các phím số.\n"
+                              "BACKSPACE để xóa, ENTER để xác nhận.\n\n"
+                              "Tiếp tục giải cho đến khi hết thời gian."),
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
-                        pos=(0, 0.0), wrapWidth=1.6),
+                        pos=(0, 0.0), wrapWidth=1.6, font="Arial"),
     ]
 
     kb.clearEvents()
@@ -162,7 +163,7 @@ def show_instructions(win, kb, settings, auto_advance_s=7.0):
         remaining = auto_advance_s - clock.getTime()
         if remaining <= 0:
             return
-        footer.text = f"Starting in {int(remaining) + 1}…"
+        footer.text = f"Bắt đầu sau {int(remaining) + 1} giây…"
         for s in stims:
             s.draw()
         footer.draw()
@@ -212,9 +213,9 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
                       colorSpace="rgb255", lineWidth=2)
     entry = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
                             height=h(fs["input"]), pos=(0, -0.06))
-    hint = visual.TextStim(win, text="Type answer and press ENTER",
+    hint = visual.TextStim(win, text="Nhập đáp án rồi nhấn ENTER",
                            color=(204, 204, 204), colorSpace="rgb255",
-                           height=h(fs["hint"]), pos=(0, -0.30))
+                           height=h(fs["hint"]), pos=(0, -0.30), font="Arial")
 
     trial_data = {
         "trial_number": trial_number,
@@ -235,7 +236,7 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
     while True:
         if resp_limit_s is not None:
             remaining = max(0, resp_limit_s - problem_clock.getTime())
-            hint.text = f"Type answer and press ENTER   ({int(remaining) + 1}s left)"
+            hint.text = f"Nhập đáp án rồi nhấn ENTER   (còn {int(remaining) + 1}s)"
         problem.draw()
         box.draw()
         entry.text = user_input
@@ -271,13 +272,14 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
 
     # --- Feedback ---
     if trial_data["response"] == "timeout":
-        fb_text, fb_color = f"No response — Answer: {answer}", (255, 200, 0)
+        # Neutral gray, not amber, so "no response" never reads as a colour cue.
+        fb_text, fb_color = f"Không phản hồi — Đáp án: {answer}", (180, 180, 180)
     elif trial_data["correct"]:
-        fb_text, fb_color = "Correct!", (0, 255, 0)
+        fb_text, fb_color = "Đúng!", (0, 255, 0)
     else:
-        fb_text, fb_color = f"Incorrect! Answer: {answer}", (255, 68, 68)
+        fb_text, fb_color = f"Sai! Đáp án: {answer}", (255, 68, 68)
     fb = visual.TextStim(win, text=fb_text, color=fb_color, colorSpace="rgb255",
-                         height=h(fs["feedback"]))
+                         height=h(fs["feedback"]), font="Arial")
     fb.draw()
     win.flip()
     core.wait(settings["feedback_time"] / 1000.0)
@@ -324,9 +326,9 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
-    summary = f"{correct}/{len(trial_results)} correct"
+    summary = f"{correct}/{len(trial_results)} đúng"
     if no_resp:
-        summary += f", {no_resp} no response"
+        summary += f", {no_resp} không phản hồi"
     return summary
 
 
@@ -356,8 +358,9 @@ def main():
         completed=[] if aborted else [TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
-    done = visual.TextStim(win, text=f"{TASK_LABEL} Complete!\n{summary}",
-                           color=(255, 255, 255), colorSpace="rgb255", height=h(72))
+    done = visual.TextStim(win, text=f"Hoàn thành!\n{summary}",
+                           color=(255, 255, 255), colorSpace="rgb255", height=h(72),
+                           font="Arial")
     done.draw()
     win.flip()
     core.wait(2.0)
