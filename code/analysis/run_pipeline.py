@@ -59,7 +59,6 @@ from utils import (
 )
 
 import argparse
-import importlib.util
 import shutil
 import tempfile
 
@@ -72,43 +71,15 @@ import pandas as pd
 from scipy.signal import find_peaks
 
 
-# ── Dynamic import  (filenames contain spaces / hyphens) ─────────────────────
-def _import_path(module_name, file_path):
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    mod  = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+# ── Sibling analysis modules (this dir is on sys.path via CODE_DIR above) ─────
+# intensity_filter is imported first: fnirs_check does `from intensity_filter import ...`.
+import intensity_filter          # noqa: F401 — imported for fnirs_check's benefit
+from csv_to_edf_denoised import convert_csv_to_edf
+from fnirs_check import check_fNIRS_SCI
+import ppg_check as ppg
+from eeg_fi_line_chart import plot_fi_timeline, load_eeg_from_edf, compute_fi_timeline
 
-# intensity_filter (1).py must be registered under the plain name "intensity_filter"
-# before fnirs_check and csv_to_edf_denoised try to import it.
-_import_path("intensity_filter", os.path.join(CODE_DIR, "intensity_filter (1).py"))
-
-_csv_to_edf_mod = _import_path(
-    "csv_to_edf_denoised",
-    os.path.join(CODE_DIR, "csv_to_edf_denoised.py"),
-)
-_fnirs_mod = _import_path(
-    "fnirs_check",
-    os.path.join(CODE_DIR, "f-NIRS_check_for_T (1).py"),
-)
-_ppg_mod = _import_path(
-    "ppg_check",
-    os.path.join(CODE_DIR, "PPG_check_for_T (1).py"),
-)
-_fi_mod = _import_path(
-    "eeg_fi",
-    os.path.join(CODE_DIR, "eeg_fi_line_chart.py"),
-)
-
-convert_csv_to_edf  = _csv_to_edf_mod.convert_csv_to_edf
-check_fNIRS_SCI     = _fnirs_mod.check_fNIRS_SCI
-check_ppg           = _ppg_mod.check_ppg
-plot_fi_timeline    = _fi_mod.plot_fi_timeline
-load_eeg_from_edf   = _fi_mod.load_eeg_from_edf
-compute_fi_timeline = _fi_mod.compute_fi_timeline
-
-from fnirs_analysis import filter_fnirs_outliers
+check_ppg = ppg.check_ppg
 
 
 # ── Orchestration helpers ─────────────────────────────────────────────────────
@@ -170,7 +141,7 @@ def plot_combined_summary(
     stem = os.path.splitext(os.path.basename(csv_path))[0]
 
     try:
-        windows = _fi_mod.get_timeline(csv_path)
+        windows = get_timeline(csv_path)
     except Exception:
         windows = []
 
@@ -234,11 +205,11 @@ def plot_combined_summary(
             col = candidates[0] if candidates else df_ppg.columns[0]
 
         ppg_vals = pd.to_numeric(df_ppg[col], errors="coerce")
-        ppg_vals = _ppg_mod.truncate_at_first_nan(ppg_vals).dropna()
-        ppg_raw  = _ppg_mod.convert_to_raw(ppg_vals.to_numpy())
+        ppg_vals = ppg.truncate_at_first_nan(ppg_vals).dropna()
+        ppg_raw  = ppg.convert_to_raw(ppg_vals.to_numpy())
         ppg_raw  = ppg_raw[max(0, ppg_first_samples_to_ignore):]
-        ppg_raw  = _ppg_mod.fill_missing(ppg_raw)
-        ppg_filt = _ppg_mod.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
+        ppg_raw  = ppg.fill_missing(ppg_raw)
+        ppg_filt = ppg.preprocess_ppg(ppg_raw, ppg_fs, use_sg=True)
         ppg_filt = filter_outliers(ppg_filt, n_sd=3)
 
         peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
@@ -478,11 +449,8 @@ def run_pipeline(
             record["fnirs"] = f"error: {exc}"
 
         if isinstance(record.get("fnirs"), dict):
-            hbo_c, hbr_c = filter_fnirs_outliers(
-                record["fnirs"]["HbO"], record["fnirs"]["HbR"], n_sd=3
-            )
-            record["fnirs"]["HbO"] = hbo_c
-            record["fnirs"]["HbR"] = hbr_c
+            record["fnirs"]["HbO"] = filter_outliers(record["fnirs"]["HbO"], n_sd=3)
+            record["fnirs"]["HbR"] = filter_outliers(record["fnirs"]["HbR"], n_sd=3)
 
         # ── Step 3: PPG ──────────────────────────────────────────────────────
         _section("STEP 3 — PPG quality check")

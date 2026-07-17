@@ -21,16 +21,14 @@ This pipeline takes raw CSV recordings from the Brain-Life device and produces:
 ├── code/
 │   ├── analysis/                    # Offline processing of recorded data
 │   │   ├── metadata.py                  # Single source of truth for all parameters
-│   │   ├── run_pipeline.py              # Main entry point — runs all steps
-│   │   ├── eeg_fi_line_chart.py         # EEG Focus Index standalone chart
-│   │   ├── fnirs_analysis.py            # fNIRS SCI, HbO/HbR quality check
+│   │   ├── run_pipeline.py              # Main entry point — runs all steps + summary
+│   │   ├── eeg_fi_line_chart.py         # EEG Focus Index (compute + standalone chart)
 │   │   ├── csv_to_edf_denoised.py       # EEG CSV → EDF conversion with denoising
-│   │   ├── intensity_filter (1).py      # Hampel / DWT filters for fNIRS intensity
 │   │   ├── WPT_denoising_threshold.py   # Wavelet packet denoising for EEG
-│   │   ├── demo_filtfilt_compare.py     # lfilter vs filtfilt comparison for FI
-│   │   ├── utils.py                     # Timeline, outlier filter, paired stats
-│   │   ├── PPG_check_for_T (1).py       # PPG quality check module
-│   │   └── f-NIRS_check_for_T (1).py    # fNIRS quality check module
+│   │   ├── intensity_filter.py          # Hampel / DWT filters for fNIRS intensity
+│   │   ├── fnirs_check.py               # fNIRS SCI + HbO/HbR via MBLL
+│   │   ├── ppg_check.py                 # PPG quality check module
+│   │   └── utils.py                     # Timeline, outlier/z-score, paired stats
 │   └── experiment/                  # PsychoPy tasks run during acquisition
 │       ├── stroop_game_psychopy.py       # Stroop — respond to ink colour (C/M)
 │       ├── addition_game_psychopy.py     # Sum of two 3-digit numbers (2 min)
@@ -103,18 +101,12 @@ python code/analysis/run_pipeline.py data/raw/csv/ data/raw/edf \
 python code/analysis/eeg_fi_line_chart.py
 ```
 
-### Run the standalone fNIRS chart
-
-```bash
-python code/analysis/fnirs_analysis.py data/raw/csv/subject.csv
-```
-
 > **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
-> (as shown above). The standalone charts (`eeg_fi_line_chart.py`, `fnirs_analysis.py`)
-> ignore that flag and always write to the `GRAPH_*` paths defined in
-> `code/analysis/metadata.py`, which are currently absolute (`/Users/minhphan/Documents/Brain-Life/...`).
-> `eeg_fi_line_chart.py` takes no file argument — it batch-processes every EDF in
-> `DATA_EDF_DIR`. Edit `metadata.py` to point these at your own machine.
+> (as shown above). The standalone `eeg_fi_line_chart.py` ignores that flag and always
+> writes to the `GRAPH_*` paths defined in `code/analysis/metadata.py`, which are
+> currently absolute (`/Users/minhphan/Documents/Brain-Life/...`). `eeg_fi_line_chart.py`
+> takes no file argument — it batch-processes every EDF in `DATA_EDF_DIR`. Edit
+> `metadata.py` to point these at your own machine.
 
 ---
 
