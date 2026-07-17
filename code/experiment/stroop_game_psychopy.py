@@ -286,6 +286,60 @@ def show_countdown(win, settings, seconds=10):
 
 
 # --------------------------------------------------------------------------- #
+# TEMPORARY: resting baseline before a standalone Stroop run.
+# Only used by main() (running this file directly) — the full battery has its own
+# baseline, so run() is untouched. To remove: delete this function and the
+# run_baseline(...) call in main(). Duration matches the battery's baseline.
+# --------------------------------------------------------------------------- #
+BASELINE_S = 120.0   # seconds — same interval as the battery baseline
+
+
+def run_baseline(win, kb, rows_out, seconds=BASELINE_S, intro_s=6.0):
+    """Eyes-open resting baseline (fixation +) shown before the Stroop task.
+
+    Logs baseline_start / baseline_end marker rows (task_type "Baseline").
+    SPACE is an experimenter early-skip; ESC raises AbortBlock.
+    """
+    intro = visual.TextStim(win, text="\n".join(content.BASELINE_INTRO), color=(255, 255, 255),
+                            colorSpace="rgb255", height=h(60), pos=(0, 0.06), wrapWidth=1.6,
+                            alignText="center", font="Arial")
+    kb.clearEvents()
+    clock = core.Clock()
+    while clock.getTime() < intro_s:
+        intro.draw()
+        win.flip()
+        keys = kb.getKeys(["space", "escape"], waitRelease=False)
+        if any(k.name == "escape" for k in keys):
+            raise AbortBlock
+        if any(k.name == "space" for k in keys):
+            break
+
+    fixation = visual.TextStim(win, text="+", color=(255, 255, 255), colorSpace="rgb255",
+                               height=h(100), pos=(0, 0.02))
+    caption = visual.TextStim(win, text=content.BASELINE_CAPTION, color=(160, 160, 160),
+                              colorSpace="rgb255", height=h(40), pos=(0, -0.34), font="Arial")
+    rows_out.append({"task_type": "Baseline", "event": "baseline_start", "time_ms": 0})
+    kb.clearEvents()
+    clock = core.Clock()
+    skipped = False
+    while clock.getTime() < seconds:
+        fixation.draw()
+        caption.draw()
+        win.flip()
+        keys = kb.getKeys(["space", "escape"], waitRelease=False)
+        if any(k.name == "escape" for k in keys):
+            rows_out.append({"task_type": "Baseline", "event": "baseline_aborted",
+                             "time_ms": int(round(clock.getTime() * 1000))})
+            raise AbortBlock
+        if any(k.name == "space" for k in keys):
+            skipped = True
+        if skipped:
+            break
+    rows_out.append({"task_type": "Baseline", "event": "baseline_end",
+                     "time_ms": int(round(clock.getTime() * 1000))})
+
+
+# --------------------------------------------------------------------------- #
 # Trial
 # --------------------------------------------------------------------------- #
 def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
@@ -452,14 +506,15 @@ def main():
 
     rows, summary, aborted = [], "", False
     try:
+        run_baseline(win, kb, rows)          # TEMPORARY resting baseline before Stroop
         summary = run(win, kb, participant, demographics, settings, rows_out=rows)
     except AbortBlock:
         aborted = True
 
     session_id, session_dir = expio.make_session_dir(participant)
     expio.save_session(session_dir, rows, expio.build_metadata(
-        session_id, demographics, task_order=[TASK_LABEL],
-        completed=[] if aborted else [TASK_LABEL], aborted=aborted,
+        session_id, demographics, task_order=["Baseline", TASK_LABEL],
+        completed=[] if aborted else ["Baseline", TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
     done = visual.TextStim(win, text=content.STROOP["done"], color=(255, 255, 255),
