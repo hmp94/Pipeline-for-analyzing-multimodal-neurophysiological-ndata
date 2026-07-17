@@ -62,6 +62,20 @@ def get_timeline(path):
 
 # ── Signal processing ─────────────────────────────────────────────────────────
 
+def zscore(signal):
+    """Z-score normalize: (x - mean) / SD. Returns mean-centred zeros if SD==0.
+
+    A global affine transform, so paired task-vs-rest t-stats are unchanged; it
+    only rescales the display into normalized units (~±3).
+    """
+    s = np.asarray(signal, dtype=float)
+    mean = np.nanmean(s)
+    sd = np.nanstd(s)
+    if sd == 0 or not np.isfinite(sd):
+        return s - mean
+    return (s - mean) / sd
+
+
 def filter_outliers(signal, n_sd=3):
     """Replace samples outside mean ± n_sd*SD with NaN, then linearly interpolate."""
     s = np.array(signal, dtype=float)

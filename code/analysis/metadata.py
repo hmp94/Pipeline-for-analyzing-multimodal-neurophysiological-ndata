@@ -30,7 +30,10 @@ FNIRS_DISTANCE_CM = 3.5          # source–detector separation (cm)
 FNIRS_DPF         = (6.0, 6.0)   # differential pathlength factor [RED, IR]
 
 # Frequency bands
-FNIRS_HEMO_BAND   = (0.01, 0.8)  # Hz — hemodynamic bandpass
+FNIRS_HEMO_BAND   = (0.01, 0.1)  # Hz — hemodynamic bandpass (task band; 0.1 Hz
+                                 # upper cut removes Mayer waves ~0.1 Hz and
+                                 # respiration ~0.2-0.3 Hz. Was 0.8, which let
+                                 # that fluctuation ride on the slow response.)
 FNIRS_SCI_BAND    = (0.8,  2.0)  # Hz — scalp coupling index (cardiac)
 
 # Baseline for ΔOD

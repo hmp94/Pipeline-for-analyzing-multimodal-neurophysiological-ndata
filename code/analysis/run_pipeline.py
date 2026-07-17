@@ -49,12 +49,12 @@ if CODE_DIR not in sys.path:
     sys.path.insert(0, CODE_DIR)
 
 from metadata import (
-    FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR,
+    FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR, FNIRS_HEMO_BAND,
     EEG_FS, EEG_CHANNELS, EEG_FI_WIN, EEG_FI_STEP,
     GRAPH_FNIRS_DIR, GRAPH_EEG_DIR, GRAPH_SUMMARY_DIR,
 )
 from utils import (
-    get_timeline, filter_outliers, paired_test, raw_pairs, sig_pairs, fi_pairs,
+    get_timeline, filter_outliers, zscore, paired_test, raw_pairs, sig_pairs, fi_pairs,
     rmssd_windows, fmt_paired, shade_timeline, WIN_COLORS,
 )
 
@@ -190,6 +190,8 @@ def plot_combined_summary(
         session_end_samp = int(windows[-1]["t_end"] * fs_f)
         HbO = HbO[:session_end_samp]
         HbR = HbR[:session_end_samp]
+        HbO = zscore(HbO)          # normalized units (~±3); task-vs-rest t-stat unchanged
+        HbR = zscore(HbR)
         t    = np.arange(len(HbO)) / fs_f
         shade_timeline(ax1, windows, x_scale=1.0, x_max=t[-1] if len(t) else 0)
         ax1.plot(t, HbO, color="red",  lw=0.9, label="HbO", zorder=3)
@@ -201,7 +203,10 @@ def plot_combined_summary(
             fontsize=9,
         )
         ax1.set_xlim(0, t[-1])
-        ax1.set_ylim(-5e-6, 5e-6)
+        # Adaptive y-limit (robust to residual motion spikes) so the response is visible
+        _av = np.abs(np.concatenate([HbO, HbR])) if len(HbO) else np.array([5e-6])
+        _yl = float(np.nanpercentile(_av, 99)) * 1.2
+        ax1.set_ylim(-_yl, _yl) if np.isfinite(_yl) and _yl > 0 else ax1.set_ylim(-5e-6, 5e-6)
 
         # stats — paired t-test, task vs rest only
         hbo_tr = sig_pairs(HbO, fs_f, windows)
@@ -213,7 +218,7 @@ def plot_combined_summary(
                  ha="center", va="center", transform=ax1.transAxes, fontsize=8)
         ax1.set_title("fNIRS — unavailable", fontsize=9)
     ax1.set_xlabel("Time (s)", fontsize=8)
-    ax1.set_ylabel("µM", fontsize=8)
+    ax1.set_ylabel("normalized (z)", fontsize=8)
     ax1.legend(loc="upper right", fontsize=8)
     ax1.grid(True, alpha=0.25, zorder=0)
     ax1.tick_params(labelsize=7)
@@ -239,13 +244,15 @@ def plot_combined_summary(
         peaks, _ = find_peaks(ppg_filt, distance=int(ppg_fs * 0.4))
         hr = (60 / (np.mean(np.diff(peaks)) / ppg_fs)) if len(peaks) > 1 else float("nan")
 
+        ppg_filt = zscore(ppg_filt)   # normalized units; peaks/HR/RMSSD are timing-based, unaffected
         t_ppg = np.arange(len(ppg_filt)) / ppg_fs
         shade_timeline(ax2, windows, x_scale=1.0, x_max=t_ppg[-1] if len(t_ppg) else 0)
         ax2.plot(t_ppg, ppg_filt, color="darkgreen", lw=0.8, label="PPG filtered", zorder=3)
         if len(peaks):
             ax2.plot(peaks / ppg_fs, ppg_filt[peaks], "ro", ms=2.5, label="Peaks", zorder=4)
 
-        ax2.set_ylim(-1100, 1100)
+        _pz = float(np.nanpercentile(np.abs(ppg_filt), 99)) * 1.2 if len(ppg_filt) else 5.0
+        ax2.set_ylim(-_pz, _pz) if np.isfinite(_pz) and _pz > 0 else ax2.set_ylim(-5, 5)
         ax2.set_xlim(0, t_ppg[-1])
         ax2.set_title(f"PPG — filtered signal   HR ≈ {hr:.1f} bpm", fontsize=9)
 
@@ -257,7 +264,7 @@ def plot_combined_summary(
                  ha="center", va="center", transform=ax2.transAxes, fontsize=8)
         ax2.set_title("PPG — unavailable", fontsize=9)
     ax2.set_xlabel("Time (s)", fontsize=8)
-    ax2.set_ylabel("Amplitude", fontsize=8)
+    ax2.set_ylabel("normalized (z)", fontsize=8)
     ax2.legend(loc="upper right", fontsize=8)
     ax2.grid(True, alpha=0.25, zorder=0)
     ax2.tick_params(labelsize=7)
@@ -269,6 +276,7 @@ def plot_combined_summary(
             data, _, fs_e = load_eeg_from_edf(edf_path, fi_channels)
             t_c, fi       = compute_fi_timeline(data, fs_e, win_sec=fi_win_sec, step_sec=fi_step_sec)
             fi_avg        = filter_outliers(fi.mean(axis=0), n_sd=3)
+            fi_avg        = zscore(fi_avg)     # normalized units; task-vs-rest t-stat unchanged
             t_min         = t_c / 60
 
             k         = max(1, int(60 / fi_step_sec))
@@ -295,7 +303,8 @@ def plot_combined_summary(
                 first_mean = False
 
             ax3.set_xlim(0, t_min[-1] if len(t_min) else 0)
-            ax3.set_ylim(0, 10)
+            _fz = float(np.nanpercentile(np.abs(fi_avg), 99)) * 1.2 if len(fi_avg) else 4.0
+            ax3.set_ylim(-_fz, _fz) if np.isfinite(_fz) and _fz > 0 else ax3.set_ylim(-4, 4)
             ax3.set_title(
                 f"EEG — Focus Index (β/α)   channels: {list(fi_channels)}", fontsize=9
             )
@@ -312,7 +321,7 @@ def plot_combined_summary(
         ax3.text(0.5, 0.5, "No EDF produced — EEG FI unavailable",
                  ha="center", va="center", transform=ax3.transAxes, fontsize=8)
         ax3.set_title("EEG FI — unavailable", fontsize=9)
-    ax3.set_ylabel("FI = β/α", fontsize=8)
+    ax3.set_ylabel("normalized (z)", fontsize=8)
     ax3.legend(loc="upper right", fontsize=8)
     ax3.grid(True, alpha=0.25, zorder=0)
     ax3.tick_params(labelsize=7)
@@ -320,7 +329,7 @@ def plot_combined_summary(
     # ── Panel 4: Statistics table ─────────────────────────────────────────────
     ax4 = fig.add_subplot(gs[3])
     ax4.axis("off")
-    ax4.set_title("Paired t-test — task vs adjacent rest  (fNIRS/EEG: raw samples; PPG: RMSSD per window)",
+    ax4.set_title("Paired t-test — task vs adjacent rest  (fNIRS/EEG: z-normalized samples; PPG: RMSSD per window, ms)",
                   fontsize=9, fontweight="bold", pad=14)
 
     col_labels = ["Measure", "Group A mean ± SD", "Group B mean ± SD",
@@ -386,6 +395,7 @@ def run_pipeline(
     fnirs_col_red=FNIRS_COL_RED,
     fnirs_col_ir=FNIRS_COL_IR,
     fnirs_signal_range=None,
+    fnirs_hemo_band=FNIRS_HEMO_BAND,
     fnirs_use_hampel=False,
     fnirs_use_dwt=False,
     fnirs_plot=True,
@@ -459,6 +469,7 @@ def run_pipeline(
                 fs=fnirs_fs,
                 col_red=fnirs_col_red,
                 col_ir=fnirs_col_ir,
+                hemo_band=fnirs_hemo_band,
                 use_hampel=fnirs_use_hampel,
                 use_dwt=fnirs_use_dwt,
             )

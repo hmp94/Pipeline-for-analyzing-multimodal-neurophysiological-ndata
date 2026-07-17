@@ -20,7 +20,7 @@ import sys
 import importlib.util
 from metadata import (
     TASK_DUR, REST_DUR, PREFOCUS_DUR,
-    FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR,
+    FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR, FNIRS_HEMO_BAND,
     GRAPH_FNIRS_DIR,
 )
 
@@ -32,7 +32,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 from utils import (
-    get_timeline, filter_outliers, paired_test, sig_pairs, fmt_paired,
+    get_timeline, filter_outliers, zscore, paired_test, sig_pairs, fmt_paired,
     shade_timeline, WIN_COLORS,
 )
 
@@ -70,6 +70,7 @@ def plot_fnirs(
     col_red=FNIRS_COL_RED,
     col_ir=FNIRS_COL_IR,
     fnirs_fs=FNIRS_FS,
+    hemo_band=FNIRS_HEMO_BAND,
     use_hampel=False,
     use_dwt=False,
 ):
@@ -85,17 +86,24 @@ def plot_fnirs(
         fs=fnirs_fs,
         col_red=col_red,
         col_ir=col_ir,
+        hemo_band=hemo_band,
         use_hampel=use_hampel,
         use_dwt=use_dwt,
     )
 
-    HbO     = filter_outliers(result["HbO"])
-    HbR     = filter_outliers(result["HbR"])
+    HbO     = zscore(filter_outliers(result["HbO"]))   # normalized units (~±3)
+    HbR     = zscore(filter_outliers(result["HbR"]))   # task-vs-rest t-stat unchanged
     sci_r   = result.get("sci_r",   float("nan"))
     hb_corr = result.get("Hb_corr", float("nan"))
     fs_used = result.get("fs", fnirs_fs)
     t       = np.arange(len(HbO)) / fs_used
     x_max   = t[-1] if len(t) else 0
+
+    # Adaptive y-limit (robust to residual motion spikes) so the response is visible
+    _absvals = np.abs(np.concatenate([HbO, HbR])) if len(HbO) else np.array([5e-6])
+    ylim    = float(np.nanpercentile(_absvals, 99)) * 1.2
+    if not np.isfinite(ylim) or ylim <= 0:
+        ylim = 5e-6
 
     def _f(v, d=4):
         return f"{v:.{d}f}" if not np.isnan(v) else "n/a"
@@ -110,9 +118,9 @@ def plot_fnirs(
         ax.plot(t, signal, color=color, lw=0.9, label=label, zorder=3)
         ax.set_title(title, fontsize=9)
         ax.set_xlim(0, x_max)
-        ax.set_ylim(-5e-6, 5e-6)
+        ax.set_ylim(-ylim, ylim)
         ax.set_xlabel("Time (s)", fontsize=8)
-        ax.set_ylabel("µM", fontsize=8)
+        ax.set_ylabel("normalized (z)", fontsize=8)
         ax.legend(loc="upper right", fontsize=8)
         ax.grid(True, alpha=0.25, zorder=0)
         ax.tick_params(labelsize=7)
@@ -130,9 +138,9 @@ def plot_fnirs(
     ax_c.plot(t, HbR, color="steelblue", lw=0.9, label="HbR", zorder=3)
     ax_c.set_title("fNIRS — HbO / HbR", fontsize=9)
     ax_c.set_xlim(0, x_max)
-    ax_c.set_ylim(-5e-6, 5e-6)
+    ax_c.set_ylim(-ylim, ylim)
     ax_c.set_xlabel("Time (s)", fontsize=8)
-    ax_c.set_ylabel("µM", fontsize=8)
+    ax_c.set_ylabel("normalized (z)", fontsize=8)
     ax_c.legend(loc="upper right", fontsize=8)
     ax_c.grid(True, alpha=0.25, zorder=0)
     ax_c.tick_params(labelsize=7)
@@ -152,7 +160,7 @@ def plot_fnirs(
         fmt_paired("HbR Task vs Rest", paired_test(hbr_tr)),
     ]
 
-    col_labels = ["Measure", "Task mean ± SD (µM)", "Control mean ± SD (µM)",
+    col_labels = ["Measure", "Task mean ± SD (z)", "Control mean ± SD (z)",
                   "t statistic", "p-value", "Sig.", "Effect r"]
     tbl = ax3.table(cellText=stats_rows, colLabels=col_labels, loc="center", cellLoc="center")
     tbl.auto_set_font_size(False)

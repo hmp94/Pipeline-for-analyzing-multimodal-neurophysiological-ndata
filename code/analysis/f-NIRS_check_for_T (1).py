@@ -5,7 +5,7 @@ if not hasattr(np, "trapezoid"):        # NumPy < 2.0 exposes this as np.trapz
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
-from scipy.signal import butter, lfilter, find_peaks
+from scipy.signal import butter, lfilter, sosfiltfilt, find_peaks
 from scipy import signal
 from intensity_filter import dwt_denoise_filter, hampel_filter
 import warnings
@@ -48,9 +48,18 @@ def colored_status_text(status):
 
 
 
-def bandpass_filter(data, lowcut, highcut, fs, order=2):
-    """Apply a Butterworth bandpass filter to the data."""
+def bandpass_filter(data, lowcut, highcut, fs, order=2, zero_phase=False):
+    """Butterworth bandpass filter.
+
+    zero_phase=True uses second-order sections + sosfiltfilt: no phase lag (the
+    hemodynamic response is not shifted in time) and numerically stable at very
+    low cutoffs like 0.01 Hz, where the (b, a) form + filtfilt overflow to NaN.
+    Otherwise a causal lfilter is used (kept for the SCI/cardiac path).
+    """
     nyq = 0.5 * fs
+    if zero_phase:
+        sos = butter(order, [lowcut / nyq, highcut / nyq], btype='band', output='sos')
+        return sosfiltfilt(sos, data)
     b, a = butter(order, [lowcut / nyq, highcut / nyq], btype='band')
     return lfilter(b, a, data)
 
@@ -237,8 +246,8 @@ def check_fNIRS_SCI(
     # SCI settings
     sci_band=(0.8, 2.0),
     sci_use_log_intensity=False,
-    # Hemodynamic filtering
-    hemo_band=(0.01, 0.8),
+    # Hemodynamic filtering (task band; upper cut removes Mayer/respiration)
+    hemo_band=(0.01, 0.1),
     # MBLL parameters (MUST match your LED wavelengths!)
     ext_coef=np.array([[446, 1115.88],
                        [1022, 692.36]], dtype=float),  # rows: [RED, IR], cols: [HbO, HbR]
@@ -426,10 +435,10 @@ def check_fNIRS_SCI(
 
     visualize_heart_rate(dOD[0], dOD[1], fs)
 
-    # Hemodynamic bandpass on ΔOD
+    # Hemodynamic bandpass on ΔOD — zero-phase so the response is not time-shifted.
     dOD_f = np.vstack([
-        bandpass_filter(dOD[0], hemo_band[0], hemo_band[1], fs),
-        bandpass_filter(dOD[1], hemo_band[0], hemo_band[1], fs),
+        bandpass_filter(dOD[0], hemo_band[0], hemo_band[1], fs, zero_phase=True),
+        bandpass_filter(dOD[1], hemo_band[0], hemo_band[1], fs, zero_phase=True),
     ])
 
     # ---- 04) MBLL to HbO/HbR ----
