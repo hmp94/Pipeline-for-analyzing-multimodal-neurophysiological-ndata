@@ -24,6 +24,7 @@ import json
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
+import content
 import experiment_io as expio
 
 
@@ -100,7 +101,7 @@ def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
 
@@ -214,17 +215,13 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
     white = (255, 255, 255)
 
     stims = [
-        visual.TextStim(win, text="Đọc truyện", color=white, colorSpace="rgb255",
+        visual.TextStim(win, text=content.FAIRY_TALE["title"], color=white, colorSpace="rgb255",
                         height=h(fs["title"]), pos=(0, 0.32), font="Arial"),
-        visual.TextStim(win,
-                        text=("Đọc thầm câu chuyện theo tốc độ của bạn.\n\n"
-                              "SPACE hoặc mũi tên phải: trang sau\n"
-                              "Mũi tên trái: trang trước\n\n"
-                              "Bài tập sẽ tự kết thúc."),
+        visual.TextStim(win, text=content.FAIRY_TALE["body"],
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
                         pos=(0, 0.0), wrapWidth=1.6, font="Arial"),
     ]
-    hint = visual.TextStim(win, text="Bài tập sẽ tự bắt đầu khi thanh thời gian kết thúc.",
+    hint = visual.TextStim(win, text=content.INSTRUCTION_HINT,
                            color=(160, 160, 160), colorSpace="rgb255",
                            height=h(34), pos=(0, -0.36), font="Arial")
     update_time_bar = make_time_bar(win)
@@ -284,7 +281,7 @@ def run_reading(win, kb, title, pages, settings, events):
     while task_clock.getTime() < duration_s:
         if page_idx != shown_page:
             body_stim.text = pages[page_idx]
-            hint_stim.text = f"SPACE / →  trang sau      ←  trang trước      ({page_idx + 1}/{len(pages)})"
+            hint_stim.text = content.FAIRY_TALE["page_hint"].format(page=page_idx + 1, total=len(pages))
             events.append({"event": "page_view", "page": page_idx + 1,
                            "time_ms": int(round(task_clock.getTime() * 1000))})
             shown_page = page_idx
@@ -339,7 +336,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     pages_read = max((e.get("page") or 0 for e in events if e["event"] == "page_view"),
                      default=0)
-    return f"{pages_read}/{len(pages)} trang"
+    return content.FAIRY_TALE["summary"].format(pages=pages_read, total=len(pages))
 
 
 def main():
@@ -368,7 +365,7 @@ def main():
         completed=[] if aborted else [TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
-    done = visual.TextStim(win, text="Hoàn thành phần đọc!", color=(255, 255, 255),
+    done = visual.TextStim(win, text=content.FAIRY_TALE["done"], color=(255, 255, 255),
                            colorSpace="rgb255", height=h(72), font="Arial")
     done.draw()
     win.flip()

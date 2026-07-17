@@ -32,7 +32,18 @@ CANONICAL_COLUMNS = [
 
 
 def _results_base(results_dir_name="results"):
-    base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
+    """Base folder for results.
+
+    Fixed relative to this file, NOT the working directory, so a session always
+    writes to the same place no matter where it was launched from. This module is
+    code/experiment/experiment_io.py, so the parent of experiment/ is code/ —
+    results therefore land in `code/results/` (a sibling of experiment/).
+    Frozen builds (PyInstaller) write next to the executable instead.
+    """
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_dir, results_dir_name)
 
 

@@ -29,6 +29,7 @@ import random
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
+import content
 import experiment_io as expio
 
 
@@ -78,52 +79,57 @@ def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
 
+# --------------------------------------------------------------------------- #
+# Parameters — EDIT THESE.  All times are in milliseconds.
+# --------------------------------------------------------------------------- #
+task_duration        = 420000   # 7 minutes — whole block (time-based, not a fixed trial count)
+num_trials           = 24       # size of one balanced set (12 congruent + 12 incongruent),
+                                # reshuffled/redrawn until task_duration elapses
+fixation_time        = 250      # fixation "+" duration
+stimulus_time        = 250      # word on-screen duration
+response_time_limit  = 2000     # response window AFTER the word disappears
+inter_trial_interval = 500      # feedback / gap between trials
+
+words  = {                      # the on-screen WORD per colour (Vietnamese) — read for meaning
+    "red":    "ĐỎ",
+    "blue":   "XANH DƯƠNG",
+    "green":  "XANH LÁ",
+    "yellow": "VÀNG",
+}
+colors = {                      # ink colours (R, G, B) 0-255.  Respond: C = blue/green, M = red/yellow
+    "red":    (255, 0,   0),
+    "blue":   (0,   0,   255),
+    "green":  (0,   255, 0),
+    "yellow": (255, 255, 0),
+}
+font_sizes = {                  # text sizes (px at a 1080px-tall screen)
+    "title": 144, "stimulus": 120, "feedback": 100, "input": 48,
+    "instruction": 72, "counter": 36, "settings": 80, "settings_value": 64,
+}
+
+
 def get_default_settings():
+    """Assemble the settings dict the task uses from the parameters above."""
     return {
-        "words": ["RED", "BLUE", "GREEN", "YELLOW"],
-        "colors": {
-            "red": (255, 0, 0),
-            "blue": (0, 0, 255),
-            "green": (0, 255, 0),
-            "yellow": (255, 255, 0),
-        },
-        "task_duration": 120000,  # ms, whole block; overrides num_trials as the stop rule
-        "num_trials": 24,         # size of each balanced set drawn from during the block
-        "stimulus_time": 250,
-        "inter_trial_interval": 500,
-        "fixation_time": 250,
-        "response_time_limit": 2000,
-        "font_sizes": {
-            "title": 144,
-            "stimulus": 120,
-            "feedback": 100,
-            "input": 48,
-            "instruction": 72,
-            "counter": 36,
-            "settings": 80,
-            "settings_value": 64,
-        },
+        "words": words,
+        "colors": colors,
+        "task_duration": task_duration,
+        "num_trials": num_trials,
+        "stimulus_time": stimulus_time,
+        "inter_trial_interval": inter_trial_interval,
+        "fixation_time": fixation_time,
+        "response_time_limit": response_time_limit,
+        "font_sizes": font_sizes,
     }
 
 
-def load_settings(settings_file="settings.json"):
-    """Load settings.json if present, else use defaults."""
-    if getattr(sys, "frozen", False):
-        settings_path = os.path.join(os.path.dirname(sys.executable), settings_file)
-    else:
-        settings_path = resource_path(settings_file)
-    try:
-        with open(settings_path, "r") as f:
-            settings = json.load(f)
-        settings["colors"] = {k: tuple(v) for k, v in settings["colors"].items()}
-        return settings
-    except FileNotFoundError:
-        print(f"Settings file not found: {settings_path} (using defaults)")
-        return get_default_settings()
+def load_settings(settings_file=None):
+    """Parameters live in this file (the constants above) — nothing is read from disk."""
+    return get_default_settings()
 
 
 def ensure_settings_defaults(settings):
@@ -139,17 +145,24 @@ def ensure_settings_defaults(settings):
 # Stimuli
 # --------------------------------------------------------------------------- #
 def create_stimuli(words, colors):
-    """Congruent (word matches ink) and incongruent stimuli, keyed "WORD_ink"."""
+    """Congruent (word meaning matches ink) and incongruent stimuli, keyed "meaning_ink".
+
+    `words` maps a colour key -> the on-screen word (e.g. "red" -> "ĐỎ"); `colors`
+    maps the same colour keys -> RGB inks. A trial is congruent when the word's
+    colour key equals the ink's colour key. The ink (second half of the key) is
+    what the participant responds to.
+    """
     congruent_stimuli = {}
     incongruent_stimuli = {}
-    color_names = list(colors.keys())
 
-    for word in words:
-        for color_name in color_names:
-            if word.upper() == color_name.upper():
-                congruent_stimuli[f"{word}_{color_name}"] = (word, colors[color_name])
+    for word_key, word_text in words.items():
+        for color_name in colors:
+            entry = (word_text, colors[color_name])
+            key = f"{word_key}_{color_name}"
+            if word_key == color_name:
+                congruent_stimuli[key] = entry
             else:
-                incongruent_stimuli[f"{word}_{color_name}"] = (word, colors[color_name])
+                incongruent_stimuli[key] = entry
 
     return {"congruent": congruent_stimuli, "incongruent": incongruent_stimuli}
 
@@ -210,36 +223,32 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
     when it empties the task starts. SPACE is an experimenter early-skip; ESC aborts.
     """
     white = (255, 255, 255)
+    txt = content.STROOP
 
-    # (ink colour, key label, y) — the "MÀU" sample word is printed in that ink.
+    # (ink colour, key label, y) — the sample word is printed in that ink.
     rows = [
-        ((0, 0, 255),   "=>  nhấn  C", -0.09),
-        ((0, 255, 0),   "=>  nhấn  C", -0.15),
-        ((255, 0, 0),   "=>  nhấn  M", -0.21),
-        ((255, 255, 0), "=>  nhấn  M", -0.27),
+        ((0, 0, 255),   txt["key_c"], -0.09),
+        ((0, 255, 0),   txt["key_c"], -0.15),
+        ((255, 0, 0),   txt["key_m"], -0.21),
+        ((255, 255, 0), txt["key_m"], -0.27),
     ]
     gap = 0.012
 
     stims = [
-        visual.TextStim(win, text="Bài tập Stroop", color=white, colorSpace="rgb255",
+        visual.TextStim(win, text=txt["title"], color=white, colorSpace="rgb255",
                         height=h(88), pos=(0, 0.44), font="Arial"),
         visual.TextStim(
-            win,
-            text=("Phản hồi theo MÀU CỦA CHỮ, không theo nghĩa của từ.\n"
-                  "\n"
-                  "Mỗi từ xuất hiện rất ngắn rồi biến mất.\n"
-                  "hãy chờ chữ tắt rồi nhấn phím nhanh và chính xác nhất có\n"
-                  "thể. Mỗi từ nhấn một phím."),
+            win, text=txt["body"],
             color=white, colorSpace="rgb255", height=h(42),
             pos=(0, 0.20), wrapWidth=1.5, alignText="center", font="Arial"),
-        visual.TextStim(win, text="Phản hồi theo màu chữ:", color=(200, 200, 200),
+        visual.TextStim(win, text=txt["color_prompt"], color=(200, 200, 200),
                         colorSpace="rgb255", height=h(38), pos=(0, -0.02), font="Arial"),
-        visual.TextStim(win, text="Bài tập sẽ tự bắt đầu khi thanh thời gian kết thúc.",
+        visual.TextStim(win, text=content.INSTRUCTION_HINT,
                         color=(160, 160, 160), colorSpace="rgb255", height=h(34),
                         pos=(0, -0.40), wrapWidth=1.7, font="Arial"),
     ]
     for colour, tail, y in rows:
-        stims.append(visual.TextStim(win, text="MÀU", color=colour, colorSpace="rgb255",
+        stims.append(visual.TextStim(win, text=txt["sample_word"], color=colour, colorSpace="rgb255",
                                      height=h(52), anchorHoriz="right",
                                      alignText="right", pos=(-gap, y), font="Arial"))
         stims.append(visual.TextStim(win, text=tail, color=white, colorSpace="rgb255",
@@ -359,10 +368,11 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
     # --- Feedback / ITI ---
     if trial_data["response"] == "timeout":
         # Neutral gray, not amber: amber overlaps the yellow stimulus colour.
-        fb = visual.TextStim(win, text="Phản hồi chậm", color=(180, 180, 180),
+        fb = visual.TextStim(win, text=content.STROOP["feedback_timeout"], color=(180, 180, 180),
                              colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
     else:
-        fb = visual.TextStim(win, text="Đúng" if trial_data["correct"] else "Sai",
+        fb = visual.TextStim(win, text=content.STROOP["feedback_correct"] if trial_data["correct"]
+                             else content.STROOP["feedback_wrong"],
                              color=(255, 255, 255), colorSpace="rgb255",
                              height=h(fs["feedback"]), font="Arial")
     fb.draw()
@@ -388,7 +398,8 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     if settings is None:
         settings = ensure_settings_defaults(load_settings())
 
-    words = settings.get("words", ["RED", "BLUE", "GREEN", "YELLOW"])
+    words = settings.get("words", {"red": "ĐỎ", "blue": "XANH DƯƠNG",
+                                   "green": "XANH LÁ", "yellow": "VÀNG"})
     stimuli_dict = create_stimuli(words, settings["colors"])
     stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
 
@@ -419,9 +430,9 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
-    summary = f"{correct}/{len(trial_results)} trả lời đúng"
+    summary = content.STROOP["summary"].format(correct=correct, total=len(trial_results))
     if no_resp:
-        summary += f", {no_resp} phản hồi chậm"
+        summary += content.STROOP["summary_timeout"].format(n=no_resp)
     return summary
 
 
@@ -451,7 +462,7 @@ def main():
         completed=[] if aborted else [TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
-    done = visual.TextStim(win, text="Hoàn thành!", color=(255, 255, 255),
+    done = visual.TextStim(win, text=content.STROOP["done"], color=(255, 255, 255),
                            colorSpace="rgb255", height=h(72), font="Arial")
     done.draw()
     win.flip()

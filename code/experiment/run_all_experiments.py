@@ -46,6 +46,7 @@ CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 if CODE_DIR not in sys.path:
     sys.path.insert(0, CODE_DIR)
 
+import content
 import experiment_io as expio
 import stroop_game_psychopy as stroop
 import addition_game_psychopy as addition
@@ -116,7 +117,7 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
     body = visual.TextStim(win, text="\n".join(lines), color=(255, 255, 255),
                            colorSpace="rgb255", height=h(60), pos=(0, 0.06),
                            wrapWidth=1.6, alignText="center", font="Arial")
-    footer = visual.TextStim(win, text="Nhấn SPACE để kết thúc", color=(160, 160, 160),
+    footer = visual.TextStim(win, text=content.FOOTER_SKIP, color=(160, 160, 160),
                              colorSpace="rgb255", height=h(34), pos=(0, -0.40), font="Arial")
 
     kb.clearEvents()
@@ -146,7 +147,7 @@ def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
     """
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
                                colorSpace="rgb255", height=h(100), pos=(0, 0.02))
-    caption = visual.TextStim(win, text="Trạng thái nền — mở mắt, thư giãn, giữ yên",
+    caption = visual.TextStim(win, text=content.BASELINE_CAPTION,
                               color=(160, 160, 160), colorSpace="rgb255",
                               height=h(40), pos=(0, -0.34), font="Arial")
 
@@ -172,7 +173,7 @@ def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
     events.append({"task_type": "Baseline", "event": "baseline_end",
                    "time_ms": int(round(clock.getTime() * 1000))})
     rows_out.extend(events)
-    return "đã ghi"
+    return content.BASELINE_RESULT
 
 
 # --------------------------------------------------------------------------- #
@@ -209,26 +210,10 @@ def main():
     kb = keyboard.Keyboard()
 
     try:
-        show_message(
-            win, kb,
-            ["Chào mừng bạn",
-             "",
-             "Trước tiên là phần đo trạng thái nền (ngồi yên, mở mắt),",
-             "sau đó là bốn bài tập ngắn, thực hiện lần lượt.",
-             "Mọi thứ diễn ra tự động — bạn chỉ thực hiện theo",
-             "hướng dẫn trên màn hình trước mỗi bài tập."],
-            seconds=WELCOME_S,
-        )
+        show_message(win, kb, content.WELCOME, seconds=WELCOME_S)
 
         # F0 resting baseline — first, no rest before it.
-        show_message(
-            win, kb,
-            ["Trạng thái nền", "",
-             "Ngồi yên và giữ mắt mở.",
-             "Thư giãn nhưng vẫn tỉnh táo. Không nhấn phím nào.",
-             "Bắt đầu ghi khi dấu + xuất hiện."],
-            seconds=WELCOME_S,
-        )
+        show_message(win, kb, content.BASELINE_INTRO, seconds=WELCOME_S)
         summaries.append(("Baseline", run_baseline(win, kb, all_rows)))
         completed_labels.append("Baseline")
         save()
@@ -238,13 +223,7 @@ def main():
             if i > 0:
                 # Rest only BETWEEN tasks (never before the first). The 10 s
                 # pre-focus is each task's own countdown, shown inside module.run.
-                show_message(
-                    win, kb,
-                    ["Nghỉ", "",
-                     "Ngồi yên, mở mắt, thư giãn.",
-                     "Bài tập tiếp theo sẽ sớm bắt đầu."],
-                    seconds=REST_S,
-                )
+                show_message(win, kb, content.REST, seconds=REST_S)
             summary = module.run(win, kb, participant, demographics, rows_out=all_rows)
             summaries.append((label, summary))
             completed_labels.append(label)
@@ -254,8 +233,8 @@ def main():
 
     save()
 
-    final_lines = ["Buổi đo kết thúc sớm" if aborted else "Hoàn thành tất cả bài tập!", ""]
-    final_lines += [f"{label}:  {summary}" for label, summary in summaries] or ["(chưa ghi được bài tập nào)"]
+    final_lines = [content.FINAL_ABORTED if aborted else content.FINAL_DONE, ""]
+    final_lines += [f"{label}:  {summary}" for label, summary in summaries] or [content.FINAL_NO_TASKS]
     try:
         show_message(win, kb, final_lines, seconds=FINAL_S, allow_skip=True, skip_hint=True)
     except AbortSession:

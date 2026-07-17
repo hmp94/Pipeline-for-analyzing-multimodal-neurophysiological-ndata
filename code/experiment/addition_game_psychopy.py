@@ -27,6 +27,7 @@ import random
 from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
+import content
 import experiment_io as expio
 
 
@@ -81,7 +82,7 @@ def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
 
@@ -169,17 +170,13 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
     white = (255, 255, 255)
 
     stims = [
-        visual.TextStim(win, text="Phép cộng", color=white, colorSpace="rgb255",
+        visual.TextStim(win, text=content.ADDITION["title"], color=white, colorSpace="rgb255",
                         height=h(fs["title"]), pos=(0, 0.32), font="Arial"),
-        visual.TextStim(win,
-                        text=("Cộng hai số hiển thị trên màn hình.\n\n"
-                              "Nhập đáp án bằng các phím số.\n"
-                              "BACKSPACE để xóa, ENTER để xác nhận.\n\n"
-                              "Tiếp tục giải cho đến khi hết thời gian."),
+        visual.TextStim(win, text=content.ADDITION["body"],
                         color=white, colorSpace="rgb255", height=h(fs["instruction"]),
                         pos=(0, 0.0), wrapWidth=1.6, font="Arial"),
     ]
-    hint = visual.TextStim(win, text="Bài tập sẽ tự bắt đầu khi thanh thời gian kết thúc.",
+    hint = visual.TextStim(win, text=content.INSTRUCTION_HINT,
                            color=(160, 160, 160), colorSpace="rgb255",
                            height=h(34), pos=(0, -0.36), font="Arial")
     update_time_bar = make_time_bar(win)
@@ -240,7 +237,7 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
                       colorSpace="rgb255", lineWidth=2)
     entry = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
                             height=h(fs["input"]), pos=(0, -0.06))
-    hint = visual.TextStim(win, text="Nhập đáp án rồi nhấn ENTER",
+    hint = visual.TextStim(win, text=content.ADDITION["hint"],
                            color=(204, 204, 204), colorSpace="rgb255",
                            height=h(fs["hint"]), pos=(0, -0.30), font="Arial")
 
@@ -263,7 +260,7 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
     while True:
         if resp_limit_s is not None:
             remaining = max(0, resp_limit_s - problem_clock.getTime())
-            hint.text = f"Nhập đáp án rồi nhấn ENTER   (còn {int(remaining) + 1}s)"
+            hint.text = content.ADDITION["hint_countdown"].format(n=int(remaining) + 1)
         problem.draw()
         box.draw()
         entry.text = user_input
@@ -300,11 +297,11 @@ def run_problem(win, kb, trial_number, settings, task_clock, duration_s):
     # --- Feedback ---
     if trial_data["response"] == "timeout":
         # Neutral gray, not amber, so "no response" never reads as a colour cue.
-        fb_text, fb_color = f"Phản hồi chậm — Đáp án: {answer}", (180, 180, 180)
+        fb_text, fb_color = content.ADDITION["feedback_timeout"].format(answer=answer), (180, 180, 180)
     elif trial_data["correct"]:
-        fb_text, fb_color = "Đúng!", (0, 255, 0)
+        fb_text, fb_color = content.ADDITION["feedback_correct"], (0, 255, 0)
     else:
-        fb_text, fb_color = f"Sai! Đáp án: {answer}", (255, 68, 68)
+        fb_text, fb_color = content.ADDITION["feedback_wrong"].format(answer=answer), (255, 68, 68)
     fb = visual.TextStim(win, text=fb_text, color=fb_color, colorSpace="rgb255",
                          height=h(fs["feedback"]), font="Arial")
     fb.draw()
@@ -353,9 +350,9 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
 
     correct = sum(1 for tr in trial_results if tr.get("correct"))
     no_resp = sum(1 for tr in trial_results if tr.get("response") == "timeout")
-    summary = f"{correct}/{len(trial_results)} trả lời đúng"
+    summary = content.ADDITION["summary"].format(correct=correct, total=len(trial_results))
     if no_resp:
-        summary += f", {no_resp} phản hồi chậm"
+        summary += content.ADDITION["summary_timeout"].format(n=no_resp)
     return summary
 
 
@@ -385,7 +382,7 @@ def main():
         completed=[] if aborted else [TASK_LABEL], aborted=aborted,
         results={TASK_LABEL: summary}))
 
-    done = visual.TextStim(win, text=f"Hoàn thành!\n{summary}",
+    done = visual.TextStim(win, text=f"{content.ADDITION['done']}\n{summary}",
                            color=(255, 255, 255), colorSpace="rgb255", height=h(72),
                            font="Arial")
     done.draw()
