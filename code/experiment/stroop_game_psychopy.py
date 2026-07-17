@@ -50,21 +50,21 @@ def make_time_bar(win, width=1.2, y=-0.46, thickness=0.016):
     """Create a depleting time bar; return update(frac) that draws it each frame.
 
     frac is the fraction of time REMAINING (1.0 = full, 0.0 = empty). The bar
-    shrinks from full width toward the left as time runs out and turns red when
-    nearly empty (running low = out of time). Call update(frac) before win.flip().
+    shrinks from full width toward the left as time runs out. It is plain WHITE
+    (no colour) so it introduces no colour cue during the Stroop colour task.
+    Call update(frac) before win.flip().
     """
     left = -width / 2.0
     bg = visual.Rect(win, width=width, height=thickness, pos=(0, y),
                      fillColor=(70, 70, 70), lineColor=None, colorSpace="rgb255")
     fg = visual.Rect(win, width=width, height=thickness, pos=(0, y),
-                     fillColor=(120, 200, 120), lineColor=None, colorSpace="rgb255")
+                     fillColor=(255, 255, 255), lineColor=None, colorSpace="rgb255")
 
     def update(frac):
         frac = min(1.0, max(0.0, frac))
         w = max(1e-4, width * frac)
         fg.width = w
         fg.pos = (left + w / 2.0, y)
-        fg.fillColor = (210, 120, 120) if frac <= 0.2 else (120, 200, 120)
         bg.draw()
         fg.draw()
 
