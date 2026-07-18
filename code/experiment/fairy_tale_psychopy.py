@@ -107,7 +107,7 @@ def resource_path(relative_path):
 
 def get_default_settings():
     return {
-        "task_duration": 120000,   # ms
+        "task_duration": 180000,   # ms (3 min)
         "chars_per_page": 650,
         "font_sizes": {
             "title": 72,

@@ -1,21 +1,22 @@
 """
 run_all_experiments.py — single-session runner for the focus-state protocol.
 
-This is a self-contained 4-task experiment. Its timeline follows the participant
+This is a self-contained 6-task experiment. Its timeline follows the participant
 instruction document ("Hướng dẫn thực hiện thử nghiệm trạng thái tập trung"); it
 is NOT the acquisition software behind the 12-task battery that code/analysis/
 processes, so it does not read from or need to match code/analysis/metadata.py.
 
 Shows ONE demographics dialog, opens ONE window, then runs:
 
-    baseline (eyes open, 120 s)
-      -> countdown (10 s) -> task 1 (120 s)
-      -> rest (60 s) -> countdown (10 s) -> task 2 (120 s)
+    baseline (eyes open, 90 s) -> baseline (eyes closed, 90 s)
+      -> countdown (10 s) -> task 1 (~180 s)
+      -> rest (60 s) -> countdown (10 s) -> task 2 (~180 s)
       -> rest (60 s) -> countdown (10 s) -> task 3 ...
 
-The four cognitive tasks (Stroop, Addition, Multiplication, Fairy Tale) run in a
-RANDOMIZED order; each lasts ~120 s. There is NO rest before the first task (the
-baseline flows straight into the first countdown), and NO rest after the last.
+The six cognitive tasks (Passive Video, Fairy Tale, Addition, CPT-X,
+Multiplication, Stroop) run in a RANDOMIZED order; each lasts ~180 s (Stroop
+300 s). There is NO rest before the first task (the baseline flows straight into
+the first countdown), and NO rest after the last.
 
 Transitions are automatic: after the demographics dialog the participant never
 has to press a key to advance — each screen counts down and moves on by itself.
@@ -52,16 +53,19 @@ import stroop_game_psychopy as stroop
 import addition_game_psychopy as addition
 import multiplication_game_psychopy as multiplication
 import fairy_tale_psychopy as fairy_tale
+import passive_video_psychopy as passive_video
+import cpt_x_psychopy as cpt_x
 
 
 REF_H = 1080.0                 # font sizes below are pixels for a 1080px-tall screen
-BASELINE_S = 120.0             # resting baseline, eyes open (per the instruction doc)
+BASELINE_OPEN_S = 90.0         # resting baseline, eyes open, 1m30 (per the instruction doc)
+BASELINE_CLOSED_S = 90.0       # resting baseline, eyes closed, 1m30 (per the instruction doc)
 REST_S = 60.0                  # rest between tasks, 1 min (per the instruction doc)
 WELCOME_S = 6.0                # auto-advancing welcome screen
 FINAL_S = 8.0                  # final summary screen (SPACE closes early)
 
-# The four tasks. Order is randomized per session.
-TASKS = [stroop, addition, multiplication, fairy_tale]
+# The six tasks. Order is randomized per session.
+TASKS = [passive_video, fairy_tale, addition, cpt_x, multiplication, stroop]
 
 # Each task module defines its own AbortBlock class; collect them so the runner
 # can catch "ESC pressed" from any task with a single except clause.
@@ -138,20 +142,18 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
                 return
 
 
-def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
-    """Resting baseline: eyes open, no task, for `seconds`.
+def _baseline_phase(win, kb, rows_out, phase, caption_text, seconds):
+    """One resting-baseline phase: hold a fixation cross for `seconds`.
 
-    Shows a fixation cross with a short reminder and holds for the full duration.
-    SPACE is an experimenter early-skip; ESC raises AbortSession. Logs
-    baseline_start / baseline_end marker rows into rows_out.
+    Logs <phase>_start / <phase>_end marker rows (phase is "eyes_open" or
+    "eyes_closed"). SPACE is an experimenter early-skip; ESC raises AbortSession.
     """
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
                                colorSpace="rgb255", height=h(100), pos=(0, 0.02))
-    caption = visual.TextStim(win, text=content.BASELINE_CAPTION,
-                              color=(160, 160, 160), colorSpace="rgb255",
-                              height=h(40), pos=(0, -0.34), font="Arial")
+    caption = visual.TextStim(win, text=caption_text, color=(160, 160, 160),
+                              colorSpace="rgb255", height=h(40), pos=(0, -0.34), font="Arial")
 
-    events = [{"task_type": "Baseline", "event": "baseline_start", "time_ms": 0}]
+    rows_out.append({"task_type": "Baseline", "event": f"{phase}_start", "time_ms": 0})
     kb.clearEvents()
     clock = core.Clock()
     skipped = False
@@ -161,18 +163,39 @@ def run_baseline(win, kb, rows_out, seconds=BASELINE_S):
         win.flip()
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
             if k.name == "escape":
-                events.append({"task_type": "Baseline", "event": "baseline_aborted",
-                               "time_ms": int(round(clock.getTime() * 1000))})
-                rows_out.extend(events)
+                rows_out.append({"task_type": "Baseline", "event": f"{phase}_aborted",
+                                 "time_ms": int(round(clock.getTime() * 1000))})
                 raise AbortSession
             if k.name == "space":
                 skipped = True
         if skipped:
             break
 
-    events.append({"task_type": "Baseline", "event": "baseline_end",
-                   "time_ms": int(round(clock.getTime() * 1000))})
-    rows_out.extend(events)
+    rows_out.append({"task_type": "Baseline", "event": f"{phase}_end",
+                     "time_ms": int(round(clock.getTime() * 1000))})
+
+
+def run_baseline(win, kb, rows_out, open_s=BASELINE_OPEN_S, closed_s=BASELINE_CLOSED_S):
+    """Two-phase resting baseline: eyes open (1m30) then eyes closed (1m30).
+
+    The eyes-open intro is shown by the caller; this shows the eyes-closed intro
+    between phases and an "open your eyes" cue at the end. SPACE is an
+    experimenter early-skip; ESC raises AbortSession. Marker rows are appended to
+    rows_out (eyes_open_* then eyes_closed_*).
+    """
+    _baseline_phase(win, kb, rows_out, "eyes_open", content.BASELINE_CAPTION, open_s)
+
+    # Participant reads this, then closes their eyes for the second phase.
+    show_message(win, kb, content.BASELINE_CLOSED_INTRO, seconds=WELCOME_S)
+    _baseline_phase(win, kb, rows_out, "eyes_closed", content.BASELINE_CLOSED_CAPTION, closed_s)
+
+    # "Open your eyes" cue — the experimenter also announces this, since the
+    # participant cannot see the screen with their eyes closed.
+    prompt = visual.TextStim(win, text=content.BASELINE_OPEN_EYES, color=(255, 255, 255),
+                             colorSpace="rgb255", height=h(120), font="Arial")
+    prompt.draw()
+    win.flip()
+    core.wait(2.0)
     return content.BASELINE_RESULT
 
 

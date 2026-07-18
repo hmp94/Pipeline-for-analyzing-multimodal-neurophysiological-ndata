@@ -88,7 +88,7 @@ def resource_path(relative_path):
 
 def get_default_settings():
     return {
-        "task_duration": 120000,     # ms, whole session
+        "task_duration": 180000,     # ms, whole session (3 min)
         "feedback_time": 1500,       # ms
         "response_window": 20000,    # ms per problem; 20s window then logged as no-response
         "min_operand": 10,

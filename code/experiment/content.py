@@ -24,22 +24,38 @@ Notes
 WELCOME = [
     "Chào mừng bạn",
     "",
-    "Trước tiên là phần đo trạng thái nền (ngồi yên, mở mắt),",
-    "sau đó là bốn bài tập ngắn, thực hiện lần lượt.",
+    "Trước tiên là phần đo trạng thái nền (mở mắt rồi nhắm mắt),",
+    "sau đó là sáu bài tập ngắn, thực hiện lần lượt.",
     "Mọi thứ diễn ra tự động — bạn chỉ thực hiện theo",
     "hướng dẫn trên màn hình trước mỗi bài tập.",
 ]
 
-# Shown just before the resting baseline block starts.
+# --- Resting baseline: eyes-open phase (shown first) -----------------------
+# Shown just before the eyes-open baseline block starts.
 BASELINE_INTRO = [
-    "Trạng thái nền", "",
+    "Trạng thái nền — mở mắt", "",
     "Ngồi yên và giữ mắt mở.",
     "Thư giãn nhưng vẫn tỉnh táo. Không nhấn phím nào.",
     "Bắt đầu ghi khi dấu + xuất hiện.",
 ]
 
-# Caption under the fixation cross during the baseline recording.
+# Caption under the fixation cross during the eyes-open baseline recording.
 BASELINE_CAPTION = "Trạng thái nền — mở mắt, thư giãn, giữ yên"
+
+# --- Resting baseline: eyes-closed phase (shown second) --------------------
+# Shown just before the eyes-closed baseline block starts (read, then close eyes).
+BASELINE_CLOSED_INTRO = [
+    "Trạng thái nền — nhắm mắt", "",
+    "Bây giờ hãy NHẮM MẮT lại và thư giãn.",
+    "Giữ yên, không nhấn phím.",
+    "Kỹ thuật viên sẽ báo khi bạn cần mở mắt.",
+]
+
+# Caption held during the eyes-closed baseline recording (for the experimenter).
+BASELINE_CLOSED_CAPTION = "Trạng thái nền — nhắm mắt, thư giãn, giữ yên"
+
+# Big prompt shown when the eyes-closed phase ends.
+BASELINE_OPEN_EYES = "Mở mắt"
 
 # Rest screen between tasks.
 REST = [
@@ -147,4 +163,37 @@ FAIRY_TALE = {
     "page_hint": "SPACE / →  trang sau      ←  trang trước      ({page}/{total})",
     "done": "Hoàn thành phần đọc!",
     "summary": "{pages}/{total} trang",
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Passive video (passive visual observation — no response)
+# ─────────────────────────────────────────────────────────────────────────────
+PASSIVE_VIDEO = {
+    "title": "Quan sát video",
+    "body": (
+        "Trên màn hình sẽ hiển thị hình ảnh chuyển động liên tục.\n\n"
+        "Hãy thư giãn và quan sát cho đến khi hết thời gian.\n"
+        "Không cần phản hồi hay thao tác gì."
+    ),
+    "done": "Hoàn thành!",
+    "summary": "đã xem",
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CPT-X (sustained attention: respond to the letter X)
+# ─────────────────────────────────────────────────────────────────────────────
+CPT = {
+    "title": "Bài tập chú ý (CPT-X)",
+    "body": (
+        "Các chữ cái sẽ xuất hiện lần lượt, mỗi chữ chỉ hiện rất ngắn.\n\n"
+        "Nếu là chữ  X  → nhấn  C\n"
+        "Nếu là chữ khác → nhấn  SPACE\n\n"
+        "Hãy phản hồi nhanh và chính xác nhất có thể."
+    ),
+    "target_prompt": "X  =>  nhấn C            chữ khác  =>  nhấn SPACE",
+    "done": "Hoàn thành!",
+    "summary": "{correct}/{total} đúng",
+    "summary_missed": ", {n} bỏ lỡ",
 }

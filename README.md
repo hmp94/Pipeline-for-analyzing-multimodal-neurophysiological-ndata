@@ -30,10 +30,12 @@ This pipeline takes raw CSV recordings from the Brain-Life device and produces:
 │   │   ├── ppg_check.py                 # PPG quality check module
 │   │   └── utils.py                     # Timeline, outlier/z-score, paired stats
 │   └── experiment/                  # PsychoPy tasks run during acquisition
-│       ├── stroop_game_psychopy.py       # Stroop — respond to ink colour (C/M)
-│       ├── addition_game_psychopy.py     # Sum of two 3-digit numbers (2 min)
-│       ├── multiplication_game_psychopy.py  # Product of two 2-digit numbers (2 min)
-│       └── fairy_tale_psychopy.py        # Story reading (paged, 2 min)
+│       ├── passive_video_psychopy.py     # Passive visual observation (moving image, 3 min)
+│       ├── fairy_tale_psychopy.py        # Story reading (paged, 3 min)
+│       ├── addition_game_psychopy.py     # Sum of two 3-digit numbers (3 min)
+│       ├── cpt_x_psychopy.py             # CPT-X sustained attention (X→C, others→SPACE, 3 min)
+│       ├── multiplication_game_psychopy.py  # Product of two 2-digit numbers (3 min)
+│       └── stroop_game_psychopy.py       # Stroop — respond to ink colour (C/M, 5 min)
 ├── data/
 │   └── raw/
 │       ├── csv/                     # Raw CSV recordings per subject
@@ -116,12 +118,17 @@ The PsychoPy tasks in `code/experiment/` are run on the acquisition machine whil
 are recorded. Each writes to `./results/` (a per-task `Game Result - <participant> <Task>.csv`
 plus a `… info.json` with demographics).
 
+The session opens with a resting baseline (eyes open 1m30, then eyes closed 1m30), then the
+six focus tasks below in randomized order with a 1-minute rest between each.
+
 | Task | Script | Description |
 |------|--------|-------------|
-| Stroop | `stroop_game_psychopy.py` | Respond to ink colour: C = blue/green, M = red/yellow. Word shown 250 ms, keys accepted only after it disappears |
-| Addition | `addition_game_psychopy.py` | Sum two 3-digit numbers, type answer + ENTER, continuous for 2 min |
-| Multiplication | `multiplication_game_psychopy.py` | Multiply two 2-digit numbers, same format, 2 min |
-| Fairy tale | `fairy_tale_psychopy.py` | Silent reading of a paged story, page views logged with timestamps, 2 min |
+| Passive video | `passive_video_psychopy.py` | Passive visual observation of continuous motion, no response, 3 min. Plays a drop-in `passive_video.*` file if present, else a self-contained optic-flow animation |
+| Fairy tale | `fairy_tale_psychopy.py` | Silent reading of a paged story, page views logged with timestamps, 3 min |
+| Addition | `addition_game_psychopy.py` | Sum two 3-digit numbers, type answer + ENTER, continuous for 3 min |
+| CPT-X | `cpt_x_psychopy.py` | Sustained attention: letters flash 250 ms; X → C, any other letter → SPACE, 3 min |
+| Multiplication | `multiplication_game_psychopy.py` | Multiply two 2-digit numbers, same format, 3 min |
+| Stroop | `stroop_game_psychopy.py` | Respond to ink colour: C = blue/green, M = red/yellow. Word shown 250 ms, keys accepted only after it disappears, 5 min |
 
 ### Run the full session (recommended)
 
@@ -129,7 +136,7 @@ plus a `… info.json` with demographics).
 python code/experiment/run_all_experiments.py
 ```
 
-`run_all_experiments.py` runs all four tasks in one session:
+`run_all_experiments.py` runs the baseline plus all six tasks in one session:
 
 - The demographics dialog (participant, age, gender, handedness) is shown **once** at the start.
 - Task order is **randomized** each session.

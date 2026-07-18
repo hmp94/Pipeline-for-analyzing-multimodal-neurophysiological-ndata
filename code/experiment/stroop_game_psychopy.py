@@ -12,7 +12,7 @@ Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          reaction_time is ms from stimulus OFFSET (word disappears); a timeout
          logs 2000.  reaction_time_from_onset is ms from stimulus ONSET (word
          appears) = reaction_time + stimulus_time, the standard Stroop RT.
-         The block runs for task_duration (default 120 s) — trials are drawn
+         The block runs for task_duration (default 300 s) — trials are drawn
          from balanced 24-trial sets (12 congruent + 12 incongruent), regenerated
          as needed, until the timer expires; a trial already in progress finishes.
          The startup dialog collects demographics only; durations come from
@@ -86,7 +86,7 @@ def resource_path(relative_path):
 # --------------------------------------------------------------------------- #
 # Parameters — EDIT THESE.  All times are in milliseconds.
 # --------------------------------------------------------------------------- #
-task_duration        = 420000   # 7 minutes — whole block (time-based, not a fixed trial count)
+task_duration        = 300000   # 5 minutes — whole block (time-based, not a fixed trial count)
 num_trials           = 24       # size of one balanced set (12 congruent + 12 incongruent),
                                 # reshuffled/redrawn until task_duration elapses
 fixation_time        = 250      # fixation "+" duration
@@ -457,7 +457,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     stimuli_dict = create_stimuli(words, settings["colors"])
     stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
 
-    duration_s = settings.get("task_duration", 120000) / 1000.0
+    duration_s = settings.get("task_duration", 300000) / 1000.0
 
     trial_results = []
     try:
