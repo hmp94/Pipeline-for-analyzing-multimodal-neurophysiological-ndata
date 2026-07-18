@@ -28,6 +28,7 @@ from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
 import content
+import settings as cfg
 import experiment_io as expio
 
 
@@ -87,22 +88,9 @@ def resource_path(relative_path):
 
 
 def get_default_settings():
-    return {
-        "task_duration": 180000,     # ms, whole session (3 min)
-        "feedback_time": 1500,       # ms
-        "response_window": None,     # ms per problem; None = no per-problem limit
-        "min_operand": 100,
-        "max_operand": 999,
-        "max_input_digits": 5,
-        "font_sizes": {
-            "title": 144,
-            "stimulus": 110,
-            "feedback": 100,
-            "input": 64,
-            "instruction": 56,
-            "hint": 36,
-        },
-    }
+    """Default parameters (from settings.py, cfg.ADDITION). An addition_settings.json
+    dropped next to this script overlays these (see load_settings)."""
+    return cfg.defaults(cfg.ADDITION)
 
 
 def load_settings(settings_file=SETTINGS_FILE):

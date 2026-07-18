@@ -25,6 +25,7 @@ from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
 import content
+import settings as cfg
 import experiment_io as expio
 
 
@@ -106,16 +107,9 @@ def resource_path(relative_path):
 
 
 def get_default_settings():
-    return {
-        "task_duration": 180000,   # ms (3 min)
-        "chars_per_page": 650,
-        "font_sizes": {
-            "title": 72,
-            "body": 42,
-            "instruction": 56,
-            "hint": 30,
-        },
-    }
+    """Default parameters (from settings.py, cfg.FAIRY_TALE). A fairy_tale_settings.json
+    dropped next to this script overlays these (see load_settings)."""
+    return cfg.defaults(cfg.FAIRY_TALE)
 
 
 def load_settings(settings_file=SETTINGS_FILE):

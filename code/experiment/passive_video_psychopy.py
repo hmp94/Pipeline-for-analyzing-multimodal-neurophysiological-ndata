@@ -27,6 +27,7 @@ from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
 import content
+import settings as cfg
 import experiment_io as expio
 
 
@@ -77,30 +78,16 @@ def resource_path(relative_path):
 
 
 # --------------------------------------------------------------------------- #
-# Parameters — EDIT THESE.  Times are in milliseconds.
+# Parameters — EDIT THESE in settings.py (cfg.PASSIVE_VIDEO): task_duration, and
+# the optic-flow fallback params n_dots / flow_speed / dot_size, font sizes.
 # --------------------------------------------------------------------------- #
-task_duration = 180000   # 3 minutes — whole block
-
-# Optic-flow fallback animation (used when no video file is present).
-n_dots       = 220       # number of dots in the field
-flow_speed   = 0.75      # radial expansion per second (larger = faster motion)
-dot_size     = 0.006     # base dot size in 'height' units
-
-font_sizes = {"instruction": 56, "title": 96}
-
-
 def get_default_settings():
-    return {
-        "task_duration": task_duration,
-        "n_dots": n_dots,
-        "flow_speed": flow_speed,
-        "dot_size": dot_size,
-        "font_sizes": font_sizes,
-    }
+    """The task's default parameters (from settings.py)."""
+    return cfg.defaults(cfg.PASSIVE_VIDEO)
 
 
 def load_settings(settings_file=None):
-    """Parameters live in this file (the constants above) — nothing is read from disk."""
+    """Parameters live in settings.py (cfg.PASSIVE_VIDEO) — nothing is read from disk."""
     return get_default_settings()
 
 

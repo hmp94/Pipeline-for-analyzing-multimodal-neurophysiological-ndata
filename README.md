@@ -118,6 +118,11 @@ The PsychoPy tasks in `code/experiment/` are run on the acquisition machine whil
 are recorded. Each writes to `./results/` (a per-task `Game Result - <participant> <Task>.csv`
 plus a `… info.json` with demographics).
 
+> **Tuning the tasks.** Two central files hold everything you'd want to adjust:
+> `content.py` for all on-screen **text**, and `settings.py` for all **numeric parameters**
+> — durations, stimulus/response intervals, trial counts, the CPT-X target ratio, ink colours,
+> font sizes, and the baseline/rest durations. Edit those rather than the individual task files.
+
 The session opens with a resting baseline (eyes open 1m30, then eyes closed 1m30), then the
 six focus tasks below in randomized order with a 1-minute rest between each.
 

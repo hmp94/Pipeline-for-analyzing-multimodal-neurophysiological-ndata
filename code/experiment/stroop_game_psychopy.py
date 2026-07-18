@@ -16,7 +16,7 @@ Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          from balanced 24-trial sets (12 congruent + 12 incongruent), regenerated
          as needed, until the timer expires; a trial already in progress finishes.
          The startup dialog collects demographics only; durations come from
-         settings.json.
+         settings.py (cfg.STROOP).
 
 Run:     python stroop_game_psychopy.py     (ESC aborts a block; partial data is saved)
 """
@@ -30,6 +30,7 @@ from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
 import content
+import settings as cfg
 import experiment_io as expio
 
 
@@ -84,51 +85,16 @@ def resource_path(relative_path):
 
 
 # --------------------------------------------------------------------------- #
-# Parameters — EDIT THESE.  All times are in milliseconds.
+# Parameters — EDIT THESE in settings.py (cfg.STROOP): task/stimulus/response
+# times (ms), num_trials, ink colours, on-screen words, font sizes.
 # --------------------------------------------------------------------------- #
-task_duration        = 300000   # 5 minutes — whole block (time-based, not a fixed trial count)
-num_trials           = 24       # size of one balanced set (12 congruent + 12 incongruent),
-                                # reshuffled/redrawn until task_duration elapses
-fixation_time        = 250      # fixation "+" duration
-stimulus_time        = 250      # word on-screen duration
-response_time_limit  = 2000     # response window AFTER the word disappears
-inter_trial_interval = 500      # feedback / gap between trials
-
-words  = {                      # the on-screen WORD per colour (Vietnamese) — read for meaning
-    "red":    "ĐỎ",
-    "blue":   "XANH DƯƠNG",
-    "green":  "XANH LÁ",
-    "yellow": "VÀNG",
-}
-colors = {                      # ink colours (R, G, B) 0-255.  Respond: C = blue/green, M = red/yellow
-    "red":    (255, 0,   0),
-    "blue":   (0,   0,   255),
-    "green":  (0,   255, 0),
-    "yellow": (255, 255, 0),
-}
-font_sizes = {                  # text sizes (px at a 1080px-tall screen)
-    "title": 144, "stimulus": 120, "feedback": 100, "input": 48,
-    "instruction": 72, "counter": 36, "settings": 80, "settings_value": 64,
-}
-
-
 def get_default_settings():
-    """Assemble the settings dict the task uses from the parameters above."""
-    return {
-        "words": words,
-        "colors": colors,
-        "task_duration": task_duration,
-        "num_trials": num_trials,
-        "stimulus_time": stimulus_time,
-        "inter_trial_interval": inter_trial_interval,
-        "fixation_time": fixation_time,
-        "response_time_limit": response_time_limit,
-        "font_sizes": font_sizes,
-    }
+    """The task's default parameters (from settings.py)."""
+    return cfg.defaults(cfg.STROOP)
 
 
 def load_settings(settings_file=None):
-    """Parameters live in this file (the constants above) — nothing is read from disk."""
+    """Parameters live in settings.py (cfg.STROOP) — nothing is read from disk."""
     return get_default_settings()
 
 

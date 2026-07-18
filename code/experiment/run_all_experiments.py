@@ -48,6 +48,7 @@ if CODE_DIR not in sys.path:
     sys.path.insert(0, CODE_DIR)
 
 import content
+import settings as cfg
 import experiment_io as expio
 import stroop_game_psychopy as stroop
 import addition_game_psychopy as addition
@@ -57,12 +58,13 @@ import passive_video_psychopy as passive_video
 import cpt_x_psychopy as cpt_x
 
 
-REF_H = 1080.0                 # font sizes below are pixels for a 1080px-tall screen
-BASELINE_OPEN_S = 90.0         # resting baseline, eyes open, 1m30 (per the instruction doc)
-BASELINE_CLOSED_S = 90.0       # resting baseline, eyes closed, 1m30 (per the instruction doc)
-REST_S = 60.0                  # rest between tasks, 1 min (per the instruction doc)
-WELCOME_S = 6.0                # auto-advancing welcome screen
-FINAL_S = 8.0                  # final summary screen (SPACE closes early)
+REF_H = 1080.0                            # font sizes below are pixels for a 1080px-tall screen
+# Session-level durations (seconds) — edit in settings.py (cfg.SESSION).
+BASELINE_OPEN_S = cfg.SESSION["baseline_open_s"]      # eyes-open baseline, 1m30
+BASELINE_CLOSED_S = cfg.SESSION["baseline_closed_s"]  # eyes-closed baseline, 1m30
+REST_S = cfg.SESSION["rest_s"]                        # rest between tasks, 1 min
+WELCOME_S = cfg.SESSION["welcome_s"]                  # auto-advancing welcome screen
+FINAL_S = cfg.SESSION["final_s"]                      # final summary screen (SPACE closes early)
 
 # The six tasks. Order is randomized per session.
 TASKS = [passive_video, fairy_tale, addition, cpt_x, multiplication, stroop]

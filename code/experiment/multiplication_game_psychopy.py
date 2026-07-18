@@ -28,6 +28,7 @@ from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
 import content
+import settings as cfg
 import experiment_io as expio
 
 
@@ -87,22 +88,10 @@ def resource_path(relative_path):
 
 
 def get_default_settings():
-    return {
-        "task_duration": 180000,     # ms, whole session (3 min)
-        "feedback_time": 1500,       # ms
-        "response_window": 20000,    # ms per problem; 20s window then logged as no-response
-        "min_operand": 10,
-        "max_operand": 99,
-        "max_input_digits": 5,
-        "font_sizes": {
-            "title": 144,
-            "stimulus": 110,
-            "feedback": 100,
-            "input": 64,
-            "instruction": 56,
-            "hint": 36,
-        },
-    }
+    """Default parameters (from settings.py, cfg.MULTIPLICATION). A
+    multiplication_settings.json dropped next to this script overlays these
+    (see load_settings)."""
+    return cfg.defaults(cfg.MULTIPLICATION)
 
 
 def load_settings(settings_file=SETTINGS_FILE):

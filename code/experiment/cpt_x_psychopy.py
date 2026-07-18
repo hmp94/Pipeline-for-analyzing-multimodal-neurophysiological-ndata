@@ -28,6 +28,7 @@ from psychopy import visual, core, gui
 from psychopy.hardware import keyboard
 
 import content
+import settings as cfg
 import experiment_io as expio
 
 
@@ -86,32 +87,16 @@ def resource_path(relative_path):
 
 
 # --------------------------------------------------------------------------- #
-# Parameters — EDIT THESE.  All times are in milliseconds.
+# Parameters — EDIT THESE in settings.py (cfg.CPT): task_duration, stimulus_time
+# (letter flash), soa (pace), target_ratio (fraction of X), font sizes.
 # --------------------------------------------------------------------------- #
-task_duration   = 180000   # 3 minutes — whole block (time-based, not a fixed trial count)
-stimulus_time   = 250      # letter on-screen duration
-soa             = 1500     # onset-to-onset interval (fixed pace); response accepted
-                           # throughout the trial, i.e. up to `soa` ms after onset
-target_ratio    = 0.30     # fraction of trials that are the target letter X
-
-font_sizes = {             # text sizes (px at a 1080px-tall screen)
-    "title": 144, "stimulus": 160, "instruction": 56, "prompt": 44, "hint": 36,
-}
-
-
 def get_default_settings():
-    """Assemble the settings dict the task uses from the parameters above."""
-    return {
-        "task_duration": task_duration,
-        "stimulus_time": stimulus_time,
-        "soa": soa,
-        "target_ratio": target_ratio,
-        "font_sizes": font_sizes,
-    }
+    """The task's default parameters (from settings.py)."""
+    return cfg.defaults(cfg.CPT)
 
 
 def load_settings(settings_file=None):
-    """Parameters live in this file (the constants above) — nothing is read from disk."""
+    """Parameters live in settings.py (cfg.CPT) — nothing is read from disk."""
     return get_default_settings()
 
 
