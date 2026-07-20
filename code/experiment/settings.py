@@ -36,8 +36,13 @@ SESSION = {
     "baseline_open_s": 90.0,     # eyes-open resting baseline (1m30)
     "baseline_closed_s": 90.0,   # eyes-closed resting baseline (1m30)
     "rest_s": 60.0,              # rest between tasks (1 min)
+    "countdown_s": 5,           # pre-task "N..1" countdown before each task (must be int)
     "welcome_s": 6.0,            # auto-advancing welcome screen
     "final_s": 8.0,             # final summary screen (SPACE closes early)
+    # "Open your eyes" audio cue at the end of the eyes-closed baseline.
+    # Played via Windows winsound.Beep; silent no-op on non-Windows (e.g. macOS).
+    "beep_freq_hz": 1000,       # tone frequency (Hz), 37..32767
+    "beep_ms": 500,             # tone duration (ms)
 }
 
 

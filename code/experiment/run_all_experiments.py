@@ -9,9 +9,9 @@ processes, so it does not read from or need to match code/analysis/metadata.py.
 Shows ONE demographics dialog, opens ONE window, then runs:
 
     baseline (eyes open, 90 s) -> baseline (eyes closed, 90 s)
-      -> countdown (10 s) -> task 1 (~180 s)
-      -> rest (60 s) -> countdown (10 s) -> task 2 (~180 s)
-      -> rest (60 s) -> countdown (10 s) -> task 3 ...
+      -> countdown (5 s) -> task 1 (~180 s)
+      -> rest (60 s) -> countdown (5 s) -> task 2 (~180 s)
+      -> rest (60 s) -> countdown (5 s) -> task 3 ...
 
 The six cognitive tasks (Passive Video, Fairy Tale, Addition, CPT-X,
 Multiplication, Stroop) run in a RANDOMIZED order; each lasts ~180 s (Stroop
@@ -144,6 +144,21 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
                 return
 
 
+def beep(freq=None, ms=None):
+    """Audible 'open your eyes' cue for the end of the eyes-closed baseline.
+
+    Uses Windows' built-in winsound (no extra dependency). winsound is absent on
+    other platforms (e.g. macOS dev), so this is a silent no-op there — never an
+    error. Tone is set in settings.py (cfg.SESSION beep_freq_hz / beep_ms).
+    """
+    try:
+        import winsound
+        winsound.Beep(int(freq or cfg.SESSION["beep_freq_hz"]),
+                      int(ms or cfg.SESSION["beep_ms"]))
+    except Exception:
+        pass
+
+
 def _baseline_phase(win, kb, rows_out, phase, caption_text, seconds):
     """One resting-baseline phase: hold a fixation cross for `seconds`.
 
@@ -191,12 +206,14 @@ def run_baseline(win, kb, rows_out, open_s=BASELINE_OPEN_S, closed_s=BASELINE_CL
     show_message(win, kb, content.BASELINE_CLOSED_INTRO, seconds=WELCOME_S)
     _baseline_phase(win, kb, rows_out, "eyes_closed", content.BASELINE_CLOSED_CAPTION, closed_s)
 
-    # "Open your eyes" cue — the experimenter also announces this, since the
-    # participant cannot see the screen with their eyes closed.
+    # "Open your eyes" cue: an audible beep (participants can't see the screen
+    # with eyes closed) plus the on-screen "Mở mắt" prompt. The beep is a Windows
+    # tone; silent no-op on macOS, where the experimenter announces it instead.
     prompt = visual.TextStim(win, text=content.BASELINE_OPEN_EYES, color=(255, 255, 255),
                              colorSpace="rgb255", height=h(120), font="Arial")
     prompt.draw()
     win.flip()
+    beep()
     core.wait(2.0)
     return content.BASELINE_RESULT
 
@@ -246,8 +263,9 @@ def main():
         for i, module in enumerate(order):
             label = module.TASK_LABEL
             if i > 0:
-                # Rest only BETWEEN tasks (never before the first). The 10 s
-                # pre-focus is each task's own countdown, shown inside module.run.
+                # Rest only BETWEEN tasks (never before the first). The pre-focus
+                # countdown (settings.SESSION["countdown_s"]) is each task's own,
+                # shown inside module.run.
                 show_message(win, kb, content.REST, seconds=REST_S)
             summary = module.run(win, kb, participant, demographics, rows_out=all_rows)
             summaries.append((label, summary))

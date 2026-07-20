@@ -168,6 +168,17 @@ def show_instructions(win, kb, settings, auto_advance_s=20.0):
                 return
 
 
+def show_countdown(win, settings, seconds=10):
+    """Big N..1 countdown before the block (uniform with the other tasks)."""
+    stim = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
+                           height=h(200))
+    for count in range(seconds, 0, -1):
+        stim.text = str(count)
+        stim.draw()
+        win.flip()
+        core.wait(1.0)
+
+
 # --------------------------------------------------------------------------- #
 # Stimulus
 # --------------------------------------------------------------------------- #
@@ -313,6 +324,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     events = []
     try:
         show_instructions(win, kb, settings)
+        show_countdown(win, settings, seconds=cfg.SESSION["countdown_s"])
         video = find_video()
         if not (video and run_movie(win, kb, video, events, duration_s)):
             run_flow(win, kb, settings, events, duration_s)

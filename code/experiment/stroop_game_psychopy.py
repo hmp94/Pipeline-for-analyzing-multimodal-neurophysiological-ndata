@@ -428,7 +428,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     trial_results = []
     try:
         show_instructions(win, kb, settings)
-        show_countdown(win, settings, seconds=10)
+        show_countdown(win, settings, seconds=cfg.SESSION["countdown_s"])
         # Run for a fixed duration rather than a fixed trial count: draw from the
         # balanced set, regenerating a fresh shuffled set whenever it runs out.
         # The timer is checked between trials, so the last trial finishes cleanly.

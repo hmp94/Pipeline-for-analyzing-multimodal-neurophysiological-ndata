@@ -320,7 +320,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     trial_results = []
     try:
         show_instructions(win, kb, settings)
-        show_countdown(win, settings, seconds=10)
+        show_countdown(win, settings, seconds=cfg.SESSION["countdown_s"])
         task_clock = core.Clock()
         trial_number = 0
         while task_clock.getTime() < duration_s:

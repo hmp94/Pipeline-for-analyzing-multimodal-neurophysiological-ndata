@@ -22,21 +22,23 @@ Notes
 
 # Welcome screen, shown once at the very start.
 WELCOME = [
-    "Chào mừng bạn",
+    "Chào mừng bạn!",
     "",
-    "Trước tiên là phần đo trạng thái nền (mở mắt rồi nhắm mắt),",
-    "sau đó là sáu bài tập ngắn, thực hiện lần lượt.",
+    "Hôm nay chúng ta sẽ có 7 nhiệm vụ.",
+    "Nhiệm vụ đầu tiên của bạn là đo trạng thái nền ",
+    "(bạn sẽ được yêu cầu mở mắt trong 1 phút 30 giây rồi nhắm mắt trong 1 phút 30 giây),",
+    "tiếp theo đó sẽ là sáu bài tập ngắn.",
+    "Bạn sẽ thực hiện lần lượt từng nhiệm vụ.",
     "Mọi thứ diễn ra tự động — bạn chỉ thực hiện theo",
     "hướng dẫn trên màn hình trước mỗi bài tập.",
 ]
 
-# --- Resting baseline: eyes-open phase (shown first) -----------------------
-# Shown just before the eyes-open baseline block starts.
+# Shown just before the resting baseline block starts.
 BASELINE_INTRO = [
     "Trạng thái nền — mở mắt", "",
-    "Ngồi yên và giữ mắt mở.",
-    "Thư giãn nhưng vẫn tỉnh táo. Không nhấn phím nào.",
-    "Bắt đầu ghi khi dấu + xuất hiện.",
+    "Hãy giữ tư thế thoải mái, NGỒI YÊN và GIỮ MẮT MỞ.",
+    "Không nhìn vào màn hình. Không suy nghĩ hay thực hiện bất kỳ thao tác nào.",
+    "Nhiệm vụ bắt đầu khi dấu + xuất hiện.",
 ]
 
 # Caption under the fixation cross during the eyes-open baseline recording.
@@ -47,8 +49,8 @@ BASELINE_CAPTION = "Trạng thái nền — mở mắt, thư giãn, giữ yên"
 BASELINE_CLOSED_INTRO = [
     "Trạng thái nền — nhắm mắt", "",
     "Bây giờ hãy NHẮM MẮT lại và thư giãn.",
-    "Giữ yên, không nhấn phím.",
-    "Kỹ thuật viên sẽ báo khi bạn cần mở mắt.",
+    "Không suy nghĩ hay thực hiện bất kỳ thao tác nào.",
+    "Sẽ có âm thanh báo khi bạn cần mở mắt.",
 ]
 
 # Caption held during the eyes-closed baseline recording (for the experimenter).
@@ -85,7 +87,7 @@ INSTRUCTION_HINT = "Bài tập sẽ tự bắt đầu khi thanh thời gian kế
 STROOP = {
     "title": "Bài tập Stroop",
     "body": (
-        "Phản hồi theo MÀU CỦA CHỮ, không theo nghĩa của từ.\n"
+        "Phản hồi theo MÀU CỦA CHỮ, không quan tâm đến nghĩa của từ.\n"
         "\n"
         "Mỗi từ xuất hiện rất ngắn rồi biến mất.\n"
         "hãy chờ chữ tắt rồi nhấn phím nhanh và chính xác nhất có\n"
@@ -158,7 +160,7 @@ FAIRY_TALE = {
         "Đọc thầm câu chuyện theo tốc độ của bạn.\n\n"
         "SPACE hoặc mũi tên phải: trang sau\n"
         "Mũi tên trái: trang trước\n\n"
-        "Bài tập sẽ tự kết thúc."
+        "Bài tập sẽ tự kết thúc khi hết thời gian."
     ),
     "page_hint": "SPACE / →  trang sau      ←  trang trước      ({page}/{total})",
     "done": "Hoàn thành phần đọc!",
@@ -187,7 +189,7 @@ PASSIVE_VIDEO = {
 CPT = {
     "title": "Bài tập chú ý (CPT-X)",
     "body": (
-        "Các chữ cái sẽ xuất hiện lần lượt, mỗi chữ chỉ hiện rất ngắn.\n\n"
+        "Các chữ cái sẽ xuất hiện lần lượt, thời gian hiển thị mỗi chữ rất ngắn.\n\n"
         "Nếu là chữ  X  → nhấn  C\n"
         "Nếu là chữ khác → nhấn  SPACE\n\n"
         "Hãy phản hồi nhanh và chính xác nhất có thể."
