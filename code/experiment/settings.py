@@ -134,6 +134,7 @@ MULTIPLICATION = {
 # ─────────────────────────────────────────────────────────────────────────────
 FAIRY_TALE = {
     "task_duration": 180000,     # 3 min
-    "chars_per_page": 650,
+    "chars_per_page": 450,       # kept low so pages with many short (dialogue) paragraphs
+                                 # don't overflow the screen vertically
     "font_sizes": {"title": 72, "body": 42, "instruction": 56, "hint": 30},
 }
