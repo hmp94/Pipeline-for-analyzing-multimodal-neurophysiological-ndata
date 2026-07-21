@@ -89,17 +89,17 @@ class AbortSession(Exception):
 def get_session_info():
     """Demographics dialog for the whole session. Returns (participant, demographics) or None."""
     info = {
-        "Participant": "",
+        "MSSV": "",
         "Age": "",
         "Gender": ["Female", "Male", "Other"],
         "Handedness": ["Right", "Left", "Ambidextrous"],
     }
-    order = ["Participant", "Age", "Gender", "Handedness"]
+    order = ["MSSV", "Age", "Gender", "Handedness"]
     dlg = gui.DlgFromDict(info, title="Cognitive Task Session", order=order)
     if not dlg.OK:
         return None
 
-    participant = (info["Participant"] or "anonymous").strip() or "anonymous"
+    participant = (info["MSSV"] or "anonymous").strip() or "anonymous"
     demographics = {
         "participant": participant,
         "age": str(info["Age"]).strip(),
@@ -147,28 +147,33 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
 def beep(freq=None, ms=None):
     """Audible 'open your eyes' cue for the end of the eyes-closed baseline.
 
-    Uses Windows' built-in winsound (no extra dependency). winsound is absent on
-    other platforms (e.g. macOS dev), so this is a silent no-op there — never an
-    error. Tone is set in settings.py (cfg.SESSION beep_freq_hz / beep_ms).
+    Cross-platform, no extra dependency: Windows plays a tone via winsound.Beep;
+    macOS plays a system sound via afplay (cfg.SESSION["beep_sound_mac"]). On any
+    other platform / on failure it is a silent no-op — never raises. Tone/sound
+    are set in settings.py.
     """
     try:
-        import winsound
-        winsound.Beep(int(freq or cfg.SESSION["beep_freq_hz"]),
-                      int(ms or cfg.SESSION["beep_ms"]))
+        if sys.platform == "win32":
+            import winsound
+            winsound.Beep(int(freq or cfg.SESSION["beep_freq_hz"]),
+                          int(ms or cfg.SESSION["beep_ms"]))
+        elif sys.platform == "darwin":
+            import subprocess
+            subprocess.Popen(["afplay", cfg.SESSION["beep_sound_mac"]])
     except Exception:
         pass
 
 
-def _baseline_phase(win, kb, rows_out, phase, caption_text, seconds):
-    """One resting-baseline phase: hold a fixation cross for `seconds`.
+def _baseline_phase(win, kb, rows_out, phase, seconds):
+    """One resting-baseline phase: hold ONLY a fixation cross for `seconds`.
 
-    Logs <phase>_start / <phase>_end marker rows (phase is "eyes_open" or
-    "eyes_closed"). SPACE is an experimenter early-skip; ESC raises AbortSession.
+    The instruction is shown beforehand (by the caller / run_baseline); during the
+    recording itself only the "+" is on screen — no caption. Logs <phase>_start /
+    <phase>_end marker rows (phase is "eyes_open" or "eyes_closed"). SPACE is an
+    experimenter early-skip; ESC raises AbortSession.
     """
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
                                colorSpace="rgb255", height=h(100), pos=(0, 0.02))
-    caption = visual.TextStim(win, text=caption_text, color=(160, 160, 160),
-                              colorSpace="rgb255", height=h(40), pos=(0, -0.34), font="Arial")
 
     rows_out.append({"task_type": "Baseline", "event": f"{phase}_start", "time_ms": 0})
     kb.clearEvents()
@@ -176,7 +181,6 @@ def _baseline_phase(win, kb, rows_out, phase, caption_text, seconds):
     skipped = False
     while clock.getTime() < seconds:
         fixation.draw()
-        caption.draw()
         win.flip()
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
             if k.name == "escape":
@@ -200,11 +204,11 @@ def run_baseline(win, kb, rows_out, open_s=BASELINE_OPEN_S, closed_s=BASELINE_CL
     experimenter early-skip; ESC raises AbortSession. Marker rows are appended to
     rows_out (eyes_open_* then eyes_closed_*).
     """
-    _baseline_phase(win, kb, rows_out, "eyes_open", content.BASELINE_CAPTION, open_s)
+    _baseline_phase(win, kb, rows_out, "eyes_open", open_s)
 
     # Participant reads this, then closes their eyes for the second phase.
     show_message(win, kb, content.BASELINE_CLOSED_INTRO, seconds=WELCOME_S)
-    _baseline_phase(win, kb, rows_out, "eyes_closed", content.BASELINE_CLOSED_CAPTION, closed_s)
+    _baseline_phase(win, kb, rows_out, "eyes_closed", closed_s)
 
     # "Open your eyes" cue: an audible beep (participants can't see the screen
     # with eyes closed) plus the on-screen "Mở mắt" prompt. The beep is a Windows
@@ -247,7 +251,7 @@ def main():
             session_id, demographics, order_labels, completed_labels,
             aborted, dict(summaries)))
 
-    win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
+    win = visual.Window(size=(1400, 900), fullscr=True, color=(0, 0, 0),
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 

@@ -118,17 +118,17 @@ class AbortBlock(Exception):
 def get_session_info():
     """Startup dialog (demographics only). Returns (participant, demographics), or None if cancelled."""
     info = {
-        "Participant": "",
+        "MSSV": "",
         "Age": "",
         "Gender": ["Female", "Male", "Other"],
         "Handedness": ["Right", "Left", "Ambidextrous"],
     }
-    order = ["Participant", "Age", "Gender", "Handedness"]
+    order = ["MSSV", "Age", "Gender", "Handedness"]
     dlg = gui.DlgFromDict(info, title=f"{TASK_LABEL} Task", order=order)
     if not dlg.OK:
         return None
 
-    participant = (info["Participant"] or "anonymous").strip() or "anonymous"
+    participant = (info["MSSV"] or "anonymous").strip() or "anonymous"
     demographics = {
         "participant": participant,
         "age": str(info["Age"]).strip(),
@@ -296,7 +296,7 @@ def main():
         core.quit()
     participant, demographics = session
 
-    win = visual.Window(size=(1400, 900), fullscr=False, color=(0, 0, 0),
+    win = visual.Window(size=(1400, 900), fullscr=True, color=(0, 0, 0),
                         colorSpace="rgb255", units="height", allowGUI=True)
     kb = keyboard.Keyboard()
 
