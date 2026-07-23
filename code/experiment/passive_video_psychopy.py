@@ -283,9 +283,10 @@ def run_flow(win, kb, settings, events, duration_s):
 def run_movie(win, kb, path, events, duration_s):
     """Play a looping video for the block. Returns False if it could not start."""
     try:
-        # units="pix" + native size: the video shows at its own resolution,
-        # centred, without needing to know its aspect ratio in 'height' units.
-        movie = visual.MovieStim(win, filename=path, loop=True, units="pix")
+        # norm units + size (2, 2) stretch the video to fill the whole window,
+        # regardless of screen resolution. (units="pix" left it at native size,
+        # so a 720p clip showed small and centred on a 1080p screen.)
+        movie = visual.MovieStim(win, filename=path, loop=True, units="norm", size=(2, 2))
     except Exception:
         return False
 

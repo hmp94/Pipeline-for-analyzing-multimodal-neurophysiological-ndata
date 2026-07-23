@@ -144,21 +144,48 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
                 return
 
 
+_beep_snd = None   # cached PsychoPy Sound (preloaded so the cue has no init delay)
+
+
+def _beep_path():
+    fname = cfg.SESSION.get("beep_file")
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), fname) if fname else ""
+
+
+def _preload_beep():
+    """Create the PsychoPy Sound early so the audio backend inits before the cue."""
+    global _beep_snd
+    path = _beep_path()
+    if _beep_snd is None and path and os.path.exists(path):
+        try:
+            from psychopy import sound
+            _beep_snd = sound.Sound(path)
+        except Exception:
+            _beep_snd = None
+
+
 def beep():
     """Audible 'open your eyes' cue at the end of the eyes-closed baseline.
 
-    Plays cfg.SESSION["beep_file"] (a WAV next to the scripts): Windows via
-    winsound.PlaySound, other platforms via afplay. If the file is missing it
-    falls back to a winsound tone (Windows) / macOS system sound. Never raises.
+    Plays cfg.SESSION["beep_file"] via PsychoPy's sound module (the reliable,
+    cross-platform way inside a PsychoPy session). Falls back to winsound /
+    afplay, then a generated tone / macOS system sound. Never raises.
     """
-    fname = cfg.SESSION.get("beep_file")
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), fname) if fname else ""
+    path = _beep_path()
     have = bool(path) and os.path.exists(path)
+    if have:
+        try:
+            _preload_beep()
+            if _beep_snd is not None:
+                _beep_snd.play()
+                return
+        except Exception:
+            pass
     try:
         if sys.platform == "win32":
             import winsound
             if have:
-                winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                winsound.PlaySound(path, winsound.SND_FILENAME)
             else:
                 winsound.Beep(int(cfg.SESSION["beep_freq_hz"]), int(cfg.SESSION["beep_ms"]))
         else:
@@ -213,6 +240,7 @@ def run_baseline(win, kb, rows_out):
     hamp = min(0.82, aspect / 2.0 * 0.9)
     vamp = 0.44
 
+    _preload_beep()   # init the audio backend now so the end-of-baseline cue has no delay
     rows_out.append({"task_type": "Baseline", "event": "baseline_start", "time_ms": 0})
     kb.clearEvents()
     block = core.Clock()
@@ -337,4 +365,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--test-beep" in sys.argv:      # quick check: python run_all_experiments.py --test-beep
+        beep()
+        core.wait(1.5)                 # let the sound finish before exiting
+        core.quit()
     main()
