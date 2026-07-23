@@ -161,11 +161,9 @@ def show_instructions(win, kb, settings, auto_advance_s=20.0):
         update_time_bar(remaining / auto_advance_s)
         win.flip()
 
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
-            if k.name == "space":
-                return
 
 
 def show_countdown(win, settings, seconds=10):
@@ -194,14 +192,12 @@ def find_video():
 
 
 def _drain_keys(kb, clock, events):
-    """Return True if the block should end early (SPACE). Raises AbortBlock on ESC."""
-    for k in kb.getKeys(["escape", "space"], waitRelease=False):
+    """Raises AbortBlock on ESC. (SPACE no longer ends the block early.)"""
+    for k in kb.getKeys(["escape"], waitRelease=False):
         if k.name == "escape":
             events.append({"task_type": TASK_LABEL, "event": "aborted",
                            "time_ms": int(round(clock.getTime() * 1000))})
             raise AbortBlock
-        if k.name == "space":
-            return True
     return False
 
 

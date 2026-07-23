@@ -182,11 +182,9 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
         update_time_bar(remaining / auto_advance_s)
         win.flip()
 
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
-            if k.name == "space":
-                return
 
 
 def show_countdown(win, settings, seconds=10):
@@ -321,7 +319,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     trial_results = []
     try:
         show_instructions(win, kb, settings)
-        show_countdown(win, settings, seconds=cfg.SESSION["countdown_s"])
+        # No pre-task countdown for multiplication (goes straight to the problems).
         task_clock = core.Clock()
         trial_number = 0
         while task_clock.getTime() < duration_s:

@@ -116,9 +116,9 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
     """Auto-advancing message screen (no countdown shown).
 
     Displays `lines` (a list of strings) for `seconds`, then returns. No timer or
-    countdown is shown. With skip_hint=True a static "Nhấn SPACE để kết thúc"
-    footer is shown (used on the final screen). SPACE returns early when
-    allow_skip is set; ESC raises AbortSession.
+    countdown is shown. SPACE does NOT skip content screens; it only closes the
+    final summary screen early (the one shown with skip_hint=True, which draws a
+    "Nhấn SPACE để kết thúc" footer). ESC raises AbortSession.
     """
     body = visual.TextStim(win, text="\n".join(lines), color=(255, 255, 255),
                            colorSpace="rgb255", height=h(60), pos=(0, 0.06),
@@ -140,7 +140,7 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortSession
-            if k.name == "space" and allow_skip:
+            if k.name == "space" and skip_hint:   # only the final summary closes on SPACE
                 return
 
 
@@ -168,9 +168,9 @@ def _baseline_phase(win, kb, rows_out, phase, seconds):
     """One resting-baseline phase: hold ONLY a fixation cross for `seconds`.
 
     The instruction is shown beforehand (by the caller / run_baseline); during the
-    recording itself only the "+" is on screen — no caption. Logs <phase>_start /
-    <phase>_end marker rows (phase is "eyes_open" or "eyes_closed"). SPACE is an
-    experimenter early-skip; ESC raises AbortSession.
+    recording itself only the "+" is on screen — no caption. Runs the full
+    duration (SPACE cannot skip it). Logs <phase>_start / <phase>_end marker rows
+    (phase is "eyes_open" or "eyes_closed"). ESC raises AbortSession.
     """
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
                                colorSpace="rgb255", height=h(100), pos=(0, 0.02))
@@ -178,19 +178,14 @@ def _baseline_phase(win, kb, rows_out, phase, seconds):
     rows_out.append({"task_type": "Baseline", "event": f"{phase}_start", "time_ms": 0})
     kb.clearEvents()
     clock = core.Clock()
-    skipped = False
     while clock.getTime() < seconds:
         fixation.draw()
         win.flip()
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 rows_out.append({"task_type": "Baseline", "event": f"{phase}_aborted",
                                  "time_ms": int(round(clock.getTime() * 1000))})
                 raise AbortSession
-            if k.name == "space":
-                skipped = True
-        if skipped:
-            break
 
     rows_out.append({"task_type": "Baseline", "event": f"{phase}_end",
                      "time_ms": int(round(clock.getTime() * 1000))})

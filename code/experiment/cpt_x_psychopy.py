@@ -172,11 +172,9 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
         update_time_bar(remaining / auto_advance_s)
         win.flip()
 
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
-            if k.name == "space":
-                return
 
 
 def show_countdown(win, settings, seconds=10):
@@ -215,6 +213,11 @@ def run_trial(win, kb, letter, trial_number, settings):
 
     glyph = visual.TextStim(win, text=letter, color=(255, 255, 255), colorSpace="rgb255",
                             height=h(fs["stimulus"]))
+    fb_correct = visual.TextStim(win, text=content.CPT["feedback_correct"], color=(0, 255, 0),
+                                 colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
+    fb_wrong = visual.TextStim(win, text=content.CPT["feedback_wrong"], color=(255, 68, 68),
+                               colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
+    feedback_s = settings.get("feedback_ms", 400) / 1000.0
 
     trial_data = {
         "trial_number": trial_number,
@@ -227,10 +230,14 @@ def run_trial(win, kb, letter, trial_number, settings):
     kb.clearEvents()
     kb.clock.reset()               # t = 0 at letter onset -> RT origin
     clock = core.Clock()
+    fb_until = -1.0                # show "Đúng"/"Sai" until this time (set on response)
     while clock.getTime() < soa_s:
-        if clock.getTime() < stim_s:
-            glyph.draw()
-        win.flip()                 # blank after the letter's on-screen time
+        t = clock.getTime()
+        if t < stim_s:
+            glyph.draw()           # the letter flash
+        elif t < fb_until:
+            (fb_correct if trial_data["correct"] else fb_wrong).draw()  # brief feedback
+        win.flip()                 # otherwise blank until the next onset
         for k in kb.getKeys(["c", "space", "escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
@@ -238,6 +245,7 @@ def run_trial(win, kb, letter, trial_number, settings):
                 trial_data["response"] = k.name
                 trial_data["reaction_time"] = int(round(k.rt * 1000))
                 trial_data["correct"] = (k.name == "c") if is_target else (k.name == "space")
+                fb_until = clock.getTime() + feedback_s
 
     if trial_data["response"] is None:
         trial_data["response"] = "none"          # omission

@@ -12,7 +12,7 @@ Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          reaction_time is ms from stimulus OFFSET (word disappears); a timeout
          logs 2000.  reaction_time_from_onset is ms from stimulus ONSET (word
          appears) = reaction_time + stimulus_time, the standard Stroop RT.
-         The block runs for task_duration (default 300 s) — trials are drawn
+         The block runs for task_duration (default 180 s) — trials are drawn
          from balanced 24-trial sets (12 congruent + 12 incongruent), regenerated
          as needed, until the timer expires; a trial already in progress finishes.
          The startup dialog collects demographics only; durations come from
@@ -233,11 +233,9 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
         update_time_bar(remaining / auto_advance_s)
         win.flip()
 
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
-            if k.name == "space":
-                return
 
 
 def show_countdown(win, settings, seconds=10):
@@ -274,33 +272,23 @@ def run_baseline(win, kb, rows_out, seconds=BASELINE_S, intro_s=6.0):
     while clock.getTime() < intro_s:
         intro.draw()
         win.flip()
-        keys = kb.getKeys(["space", "escape"], waitRelease=False)
+        keys = kb.getKeys(["escape"], waitRelease=False)
         if any(k.name == "escape" for k in keys):
             raise AbortBlock
-        if any(k.name == "space" for k in keys):
-            break
 
     fixation = visual.TextStim(win, text="+", color=(255, 255, 255), colorSpace="rgb255",
                                height=h(100), pos=(0, 0.02))
-    caption = visual.TextStim(win, text=content.BASELINE_CAPTION, color=(160, 160, 160),
-                              colorSpace="rgb255", height=h(40), pos=(0, -0.34), font="Arial")
     rows_out.append({"task_type": "Baseline", "event": "baseline_start", "time_ms": 0})
     kb.clearEvents()
     clock = core.Clock()
-    skipped = False
     while clock.getTime() < seconds:
         fixation.draw()
-        caption.draw()
         win.flip()
-        keys = kb.getKeys(["space", "escape"], waitRelease=False)
+        keys = kb.getKeys(["escape"], waitRelease=False)
         if any(k.name == "escape" for k in keys):
             rows_out.append({"task_type": "Baseline", "event": "baseline_aborted",
                              "time_ms": int(round(clock.getTime() * 1000))})
             raise AbortBlock
-        if any(k.name == "space" for k in keys):
-            skipped = True
-        if skipped:
-            break
     rows_out.append({"task_type": "Baseline", "event": "baseline_end",
                      "time_ms": int(round(clock.getTime() * 1000))})
 
@@ -386,16 +374,18 @@ def run_trial(win, kb, stimuli, stim_key, trial_number, settings):
             break
 
     # --- Feedback / ITI ---
+    # Feedback is shown only when NOT correct: "Sai" for a wrong answer, the
+    # timeout notice for no response. A correct answer gets a blank ITI (no "Đúng").
+    fb = None
     if trial_data["response"] == "timeout":
         # Neutral gray, not amber: amber overlaps the yellow stimulus colour.
         fb = visual.TextStim(win, text=content.STROOP["feedback_timeout"], color=(180, 180, 180),
                              colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
-    else:
-        fb = visual.TextStim(win, text=content.STROOP["feedback_correct"] if trial_data["correct"]
-                             else content.STROOP["feedback_wrong"],
-                             color=(255, 255, 255), colorSpace="rgb255",
-                             height=h(fs["feedback"]), font="Arial")
-    fb.draw()
+    elif not trial_data["correct"]:
+        fb = visual.TextStim(win, text=content.STROOP["feedback_wrong"], color=(255, 255, 255),
+                             colorSpace="rgb255", height=h(fs["feedback"]), font="Arial")
+    if fb is not None:
+        fb.draw()
     win.flip()
     core.wait(iti)
     abort_if_escape()
@@ -423,7 +413,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     stimuli_dict = create_stimuli(words, settings["colors"])
     stimuli, trial_order = create_trial_order(stimuli_dict, settings["num_trials"])
 
-    duration_s = settings.get("task_duration", 300000) / 1000.0
+    duration_s = settings.get("task_duration", 180000) / 1000.0
 
     trial_results = []
     try:

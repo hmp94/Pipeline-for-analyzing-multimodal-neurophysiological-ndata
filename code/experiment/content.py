@@ -37,7 +37,7 @@ WELCOME = [
 BASELINE_INTRO = [
     "Trạng thái nền — mở mắt", "",
     "Hãy giữ tư thế thoải mái, NGỒI YÊN và GIỮ MẮT MỞ.",
-    "Không nhìn vào màn hình. Không suy nghĩ hay thực hiện bất kỳ thao tác nào.",
+    "Không nhìn vào màn hình. Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.",
     "Nhiệm vụ bắt đầu khi dấu + xuất hiện.",
 ]
 
@@ -49,7 +49,7 @@ BASELINE_CAPTION = "Trạng thái nền — mở mắt, thư giãn, giữ yên"
 BASELINE_CLOSED_INTRO = [
     "Trạng thái nền — nhắm mắt", "",
     "Bây giờ hãy NHẮM MẮT lại và thư giãn.",
-    "Không suy nghĩ hay thực hiện bất kỳ thao tác nào.",
+    "Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.",
     "Sẽ có âm thanh báo khi bạn cần mở mắt.",
 ]
 
@@ -78,7 +78,7 @@ FOOTER_SKIP = "Nhấn SPACE để kết thúc"
 BASELINE_RESULT = "đã ghi"
 
 # Shared hint under every task's instruction screen (below the time bar).
-INSTRUCTION_HINT = "Bài tập sẽ tự bắt đầu khi thanh thời gian kết thúc."
+INSTRUCTION_HINT = "Bài tập sẽ bắt đầu khi thanh thời gian kết thúc."
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,11 +87,9 @@ INSTRUCTION_HINT = "Bài tập sẽ tự bắt đầu khi thanh thời gian kế
 STROOP = {
     "title": "Bài tập Stroop",
     "body": (
-        "Phản hồi theo MÀU CỦA CHỮ, không quan tâm đến nghĩa của từ.\n"
+        "Phản hồi theo MÀU của từ, không quan tâm đến nghĩa của từ.\n"
         "\n"
-        "Mỗi từ xuất hiện rất ngắn rồi biến mất.\n"
-        "hãy chờ chữ tắt rồi nhấn phím nhanh và chính xác nhất có\n"
-        "thể. Mỗi từ nhấn một phím."
+     "hãy nhấn nhanh nhất có thể khi từ xuất hiện"
     ),
     "color_prompt": "Phản hồi theo màu chữ:",
     "sample_word": "MÀU",           # the coloured sample word in the key legend
@@ -195,6 +193,8 @@ CPT = {
         "Hãy phản hồi nhanh và chính xác nhất có thể."
     ),
     "target_prompt": "X  =>  nhấn C            chữ khác  =>  nhấn SPACE",
+    "feedback_correct": "Đúng",
+    "feedback_wrong": "Sai",
     "done": "Hoàn thành!",
     "summary": "{correct}/{total} đúng",
     "summary_missed": ", {n} bỏ lỡ",

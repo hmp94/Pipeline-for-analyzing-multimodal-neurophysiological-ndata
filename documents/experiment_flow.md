@@ -1,0 +1,204 @@
+# Thí nghiệm trạng thái tập trung — Màn hình & Luồng chạy
+
+Tài liệu này mô tả **toàn bộ màn hình người tham gia thấy** và **thứ tự (flow)** của một phiên đo, sinh tự động từ mã nguồn (`content.py` = chữ, `settings.py` = thời lượng/tham số). Xem bản trực quan tại [`experiment_scenes_timeline.html`](experiment_scenes_timeline.html).
+
+> Chạy cả phiên: `python code/experiment/run_all_experiments.py` (cửa sổ **toàn màn hình**). Hộp thoại **MSSV / Age / Gender / Handedness** hiện trước, rồi phiên tự chạy.
+
+
+## 1. Luồng một phiên đo
+
+```
+Hộp thoại thông tin (MSSV, Age, Gender, Handedness)
+   │
+   ▼
+Chào mừng (WELCOME, ~6s)
+   ▼
+TRẠNG THÁI NỀN
+   ├─ Giới thiệu mở mắt  → Nền MỞ MẮT: chỉ dấu '+', 1:30   [GHI]
+   ├─ Giới thiệu nhắm mắt → Nền NHẮM MẮT: chỉ dấu '+', 1:30 [GHI]
+   └─ Tiếng bíp + chữ 'Mở mắt'
+   ▼
+6 BÀI TẬP  (thứ tự NGẪU NHIÊN, nghỉ 1 phút giữa các bài)
+   mỗi bài:  Hướng dẫn → Đếm ngược 5s* → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
+   *Phép nhân KHÔNG có đếm ngược
+   ▼
+Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
+```
+- **ESC**: dừng cả phiên (dữ liệu đã làm vẫn được lưu).
+- **SPACE không bỏ qua** hướng dẫn / trạng thái nền / nhiệm vụ; chỉ dùng để đóng màn hình **kết thúc**.
+
+
+## 2. Dòng thời gian (một ví dụ thứ tự ngẫu nhiên)
+
+| # | Khối | Thời lượng | Ghi tín hiệu |
+|---|------|-----------|:---:|
+| 1 | Chào mừng + giới thiệu nền | 0:12 |  |
+| 2 | Nền — mở mắt | 1:30 | ✓ |
+| 3 | Giới thiệu nhắm mắt | 0:06 |  |
+| 4 | Nền — nhắm mắt | 1:30 | ✓ |
+| 5 | **Passive Video** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 6 | Nghỉ | 1:00 | | 
+| 7 | **Addition** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 8 | Nghỉ | 1:00 | | 
+| 9 | **Fairy Tale** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 10 | Nghỉ | 1:00 | | 
+| 11 | **CPT-X** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 12 | Nghỉ | 1:00 | | 
+| 13 | **Multiplication** (hướng dẫn + nhiệm vụ) | ~3:30 | ✓ |
+| 14 | Nghỉ | 1:00 | | 
+| 15 | **Stroop A** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 16 | Tổng kết | 0:08 | |
+
+**Tổng thời lượng xấp xỉ: ~29:51** (đã tính hướng dẫn ~30s/bài vì không bỏ qua được).
+
+
+## 3. Các màn hình chung (phần phiên)
+
+
+### Chào mừng (WELCOME)
+
+> Chào mừng bạn!  
+> &nbsp;  
+> Hôm nay chúng ta sẽ có 7 nhiệm vụ.  
+> Nhiệm vụ đầu tiên của bạn là đo trạng thái nền   
+> (bạn sẽ được yêu cầu mở mắt trong 1 phút 30 giây rồi nhắm mắt trong 1 phút 30 giây),  
+> tiếp theo đó sẽ là sáu bài tập ngắn.  
+> Bạn sẽ thực hiện lần lượt từng nhiệm vụ.  
+> Mọi thứ diễn ra tự động — bạn chỉ thực hiện theo  
+> hướng dẫn trên màn hình trước mỗi bài tập.
+
+Tự chuyển sau ~6s.
+
+### Giới thiệu trạng thái nền — mở mắt (BASELINE_INTRO)
+
+> Trạng thái nền — mở mắt  
+> &nbsp;  
+> Hãy giữ tư thế thoải mái, NGỒI YÊN và GIỮ MẮT MỞ.  
+> Không nhìn vào màn hình. Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.  
+> Nhiệm vụ bắt đầu khi dấu + xuất hiện.
+
+### Trạng thái nền — MỞ MẮT (ghi)
+
+> +  (chỉ dấu cộng, KHÔNG có chữ chú thích)
+
+Giữ **1:30** (1m30). Ghi tín hiệu EEG/fNIRS/PPG.
+
+### Giới thiệu trạng thái nền — nhắm mắt (BASELINE_CLOSED_INTRO)
+
+> Trạng thái nền — nhắm mắt  
+> &nbsp;  
+> Bây giờ hãy NHẮM MẮT lại và thư giãn.  
+> Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.  
+> Sẽ có âm thanh báo khi bạn cần mở mắt.
+
+### Trạng thái nền — NHẮM MẮT (ghi)
+
+> +  (chỉ dấu cộng)
+
+Giữ **1:30** (1m30). Kết thúc bằng **tiếng bíp** + chữ 'Mở mắt' (Windows `winsound.Beep` 1000Hz/500ms; macOS `afplay`).
+
+### Nghỉ giữa các bài (REST)
+
+> Nghỉ  
+> &nbsp;  
+> Ngồi yên, mở mắt, thư giãn.  
+> Bài tập tiếp theo sẽ sớm bắt đầu.
+
+**1:00** (1 phút), chỉ giữa các bài tập.
+
+## 4. Sáu bài tập
+
+| Bài tập | Thời lượng | Phím trả lời | Phản hồi sau khi trả lời | Đếm ngược |
+|--------|:---------:|-------------|--------------------------|:---:|
+| **Quan sát video** (Passive Video) | 3:00 | — (thụ động) | — | 5s |
+| **Đọc truyện** (Fairy Tale) | 3:00 | SPACE/→ trang sau, ← trang trước | — | 5s |
+| **Phép cộng** (Addition) | 3:00 | phím số + ENTER (BACKSPACE xóa) | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | 5s |
+| **CPT-X** | 3:00 | X→**C**, chữ khác→**SPACE** | “Đúng” / “Sai” (~400ms) | 5s |
+| **Phép nhân** (Multiplication) | 3:00 | phím số + ENTER | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | **KHÔNG** |
+| **Stroop** | 3:00 | XANH DƯƠNG/XANH LÁ→**C**, ĐỎ/VÀNG→**M** | **chỉ “Sai”** (đúng = trống; quá giờ = “Phản hồi chậm”) | 5s |
+
+### Chuỗi màn hình của mỗi bài tập
+
+Mỗi bài (trong phiên) diễn ra theo thứ tự:
+
+1. **Hướng dẫn** — tiêu đề + mô tả + thanh thời gian (tự bắt đầu sau ~30s; passive ~20s). Không bỏ qua bằng SPACE.
+2. **Đếm ngược** — 5 → … → 1  *(trừ Phép nhân: vào thẳng bài)*.
+3. **Nhiệm vụ** — kích thích lặp lại đến khi hết giờ.
+4. **Phản hồi** — hiện sau mỗi câu trả lời (xem bảng trên); Quan sát video & Đọc truyện không có.
+
+
+### Nội dung hướng dẫn từng bài (chữ hiển thị)
+
+
+**Quan sát video** — *Quan sát video*
+> Trên màn hình sẽ hiển thị hình ảnh chuyển động liên tục.  
+>   
+> Hãy thư giãn và quan sát cho đến khi hết thời gian.  
+> Không cần phản hồi hay thao tác gì.
+
+**Đọc truyện** — *Đọc truyện*
+> Đọc thầm câu chuyện theo tốc độ của bạn.  
+>   
+> SPACE hoặc mũi tên phải: trang sau  
+> Mũi tên trái: trang trước  
+>   
+> Bài tập sẽ tự kết thúc khi hết thời gian.
+
+**Phép cộng** — *Phép cộng*
+> Cộng hai số hiển thị trên màn hình.  
+>   
+> Nhập đáp án bằng các phím số.  
+> BACKSPACE để xóa, ENTER để xác nhận.  
+>   
+> Tiếp tục giải cho đến khi hết thời gian.
+
+**CPT-X** — *Bài tập chú ý (CPT-X)*
+> Các chữ cái sẽ xuất hiện lần lượt, thời gian hiển thị mỗi chữ rất ngắn.  
+>   
+> Nếu là chữ  X  → nhấn  C  
+> Nếu là chữ khác → nhấn  SPACE  
+>   
+> Hãy phản hồi nhanh và chính xác nhất có thể.
+> 
+> X  =>  nhấn C            chữ khác  =>  nhấn SPACE
+
+**Phép nhân** — *Phép nhân*
+> Nhân hai số hiển thị trên màn hình.  
+>   
+> Nhập đáp án bằng các phím số.  
+> BACKSPACE để xóa, ENTER để xác nhận.  
+>   
+> Tiếp tục giải cho đến khi hết thời gian.
+
+**Stroop** — *Bài tập Stroop*
+> Phản hồi theo MÀU của từ, không quan tâm đến nghĩa của từ.  
+>   
+> hãy nhấn nhanh nhất có thể khi từ xuất hiện
+> 
+> Chú thích màu: XANH DƯƠNG / XANH LÁ ⇒ C · ĐỎ / VÀNG ⇒ M
+
+## 5. Ghi chú hành vi (đã cập nhật)
+
+- **Toàn màn hình** (`fullscr=True`) cho mọi bài.
+- **SPACE không bỏ qua** hướng dẫn / trạng thái nền / nhiệm vụ — chỉ **ESC** mới dừng; màn hình **kết thúc** vẫn đóng bằng SPACE.
+- **Trạng thái nền chỉ hiện dấu '+'** trong lúc ghi (không có chữ chú thích xám); hướng dẫn hiện **trước**.
+- **Phép nhân** không có đếm ngược; các bài khác đếm ngược **5s**.
+- **Stroop**: chỉ báo **“Sai”** (không báo “Đúng”); quá giờ = “Phản hồi chậm” (xám).
+- **CPT-X**: báo **“Đúng”/“Sai”** ~400ms sau mỗi phản hồi (giữ nhịp cố định SOA 1500ms).
+- **Tiếng báo mở mắt**: Windows tone 1000Hz/500ms; macOS phát `Ping.aiff`; nền tảng khác im lặng (không lỗi).
+
+## 6. Dữ liệu & chỉnh tham số
+
+- Kết quả: `code/results/<MSSV>_<thời gian>/` gồm `task.csv` (mọi trial) + `metadata.json`.
+- Chỉnh **thời lượng / khoảng cách / màu / cỡ chữ / tiếng bíp**: `code/experiment/settings.py`.
+- Chỉnh **chữ hiển thị**: `code/experiment/content.py`.
+
+## 7. Ghi chú truyện đọc (bản quyền)
+
+- Truyện hiện dùng: **“TẤM GƯƠNG ẢO ẢNH”** — là **tệp cục bộ có bản quyền**, KHÔNG đưa vào repo công khai và **không trích trong tài liệu này**.
+- Phân trang: `chars_per_page = 450` → ~158 trang (đọc trong 3:00), đã hạ từ 650 để trang không tràn dọc.
+- Muốn đổi truyện: đặt `code/experiment/fairy_tale.txt` (dòng 1 = tiêu đề, cách dòng trống giữa các đoạn); nếu không có, dùng truyện mặc định trong `fairy_tale_psychopy.py`.
+
+
+---
+*Tạo tự động từ mã nguồn. Cập nhật chữ trong `content.py`, số liệu trong `settings.py`, rồi sinh lại.*

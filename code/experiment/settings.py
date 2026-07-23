@@ -52,7 +52,7 @@ SESSION = {
 # Stroop — ms
 # ─────────────────────────────────────────────────────────────────────────────
 STROOP = {
-    "task_duration": 300000,        # 5 min — whole block (time-based)
+    "task_duration": 180000,        # 3 min — whole block (time-based), same as the other tasks
     "num_trials": 24,               # balanced set size (12 congruent + 12 incongruent)
     "fixation_time": 250,           # fixation "+" duration
     "stimulus_time": 250,           # word on-screen duration
@@ -79,8 +79,9 @@ CPT = {
     "stimulus_time": 250,      # letter flash duration
     "soa": 1500,               # onset-to-onset interval (fixed pace); response window
     "target_ratio": 0.30,      # fraction of trials that are the target letter X
+    "feedback_ms": 400,        # how long "Đúng"/"Sai" feedback shows after a response
     "font_sizes": {
-        "title": 144, "stimulus": 160, "instruction": 56, "prompt": 44, "hint": 36,
+        "title": 144, "stimulus": 160, "feedback": 120, "instruction": 56, "prompt": 44, "hint": 36,
     },
 }
 
