@@ -36,20 +36,31 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 | 2 | Nền — mở mắt | 1:30 | ✓ |
 | 3 | Giới thiệu nhắm mắt | 0:06 |  |
 | 4 | Nền — nhắm mắt | 1:30 | ✓ |
-| 5 | **Passive Video** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
-| 6 | Nghỉ | 1:00 | | 
-| 7 | **Addition** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 5 | Hướng dẫn — Passive Video | ~0:20 | | 
+| 6 | Đếm ngược — Passive Video | 0:05 | | 
+| 7 | **Passive Video** (nhiệm vụ) | 3:00 | ✓ |
 | 8 | Nghỉ | 1:00 | | 
-| 9 | **Fairy Tale** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
-| 10 | Nghỉ | 1:00 | | 
-| 11 | **CPT-X** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
+| 9 | Hướng dẫn — Addition | ~0:30 | | 
+| 10 | Đếm ngược — Addition | 0:05 | | 
+| 11 | **Addition** (nhiệm vụ) | 3:00 | ✓ |
 | 12 | Nghỉ | 1:00 | | 
-| 13 | **Multiplication** (hướng dẫn + nhiệm vụ) | ~3:30 | ✓ |
-| 14 | Nghỉ | 1:00 | | 
-| 15 | **Stroop A** (hướng dẫn + đếm ngược 5s + nhiệm vụ) | ~3:35 | ✓ |
-| 16 | Tổng kết | 0:08 | |
+| 13 | Hướng dẫn — Fairy Tale | ~0:30 | | 
+| 14 | Đếm ngược — Fairy Tale | 0:05 | | 
+| 15 | **Fairy Tale** (nhiệm vụ) | 3:00 | ✓ |
+| 16 | Nghỉ | 1:00 | | 
+| 17 | Hướng dẫn — CPT-X | ~0:30 | | 
+| 18 | Đếm ngược — CPT-X | 0:05 | | 
+| 19 | **CPT-X** (nhiệm vụ) | 3:00 | ✓ |
+| 20 | Nghỉ | 1:00 | | 
+| 21 | Hướng dẫn — Multiplication | ~0:30 | | 
+| 22 | **Multiplication** (nhiệm vụ) | 3:00 | ✓ |
+| 23 | Nghỉ | 1:00 | | 
+| 24 | Hướng dẫn — Stroop A | ~0:30 | | 
+| 25 | Đếm ngược — Stroop A | 0:05 | | 
+| 26 | **Stroop A** (nhiệm vụ) | 3:00 | ✓ |
+| 27 | Tổng kết | 0:08 | |
 
-**Tổng thời lượng xấp xỉ: ~29:51** (đã tính hướng dẫn ~30s/bài vì không bỏ qua được).
+**Tổng thời lượng xấp xỉ: ~29:41** — Hướng dẫn / Đếm ngược / Nhiệm vụ được **tách riêng**. Hướng dẫn ~30s/bài (20s cho video) vì không bỏ qua được bằng SPACE; đếm ngược 5s (trừ Phép nhân).
 
 
 ## 3. Các màn hình chung (phần phiên)
