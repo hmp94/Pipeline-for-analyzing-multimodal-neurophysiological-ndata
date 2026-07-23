@@ -87,10 +87,9 @@ Hộp thoại PsychoPy hiện MỘT LẦN trước phiên; điền rồi bấm *
 > &nbsp;  
 > Hôm nay chúng ta sẽ có 7 nhiệm vụ.  
 > Đầu tiên là đo trạng thái nền (khoảng 3 phút):  
-> nhìn dấu +, chớp mắt, đưa mắt theo hướng dẫn,  
-> rồi nhắm mắt.  
-> Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt.  
-> Mọi thứ tự động — làm theo hướng dẫn trên màn hình.
+> Hãy nhìn dấu "+" theo hướng dẫn trên màn hình  
+> &nbsp;  
+> Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt theo chỉ dẫn
 
 Tự chuyển sau ~6s.
 

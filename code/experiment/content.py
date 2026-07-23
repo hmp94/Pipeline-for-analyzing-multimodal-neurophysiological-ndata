@@ -26,10 +26,9 @@ WELCOME = [
     "",
     "Hôm nay chúng ta sẽ có 7 nhiệm vụ.",
     "Đầu tiên là đo trạng thái nền (khoảng 3 phút):",
-    "nhìn dấu +, chớp mắt, đưa mắt theo hướng dẫn,",
-    "rồi nhắm mắt.",
-    "Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt.",
-    "Mọi thứ tự động — làm theo hướng dẫn trên màn hình.",
+    "Hãy nhìn dấu \"+\" theo hướng dẫn trên màn hình",
+    "",
+    "Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt theo chỉ dẫn",
 ]
 
 # Shown ONCE before the 3-minute baseline block (explains the whole sequence).
