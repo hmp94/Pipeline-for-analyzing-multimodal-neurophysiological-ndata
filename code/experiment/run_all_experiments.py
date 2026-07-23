@@ -297,6 +297,7 @@ def main():
 
     win = visual.Window(size=(1400, 900), fullscr=True, color=(0, 0, 0),
                         colorSpace="rgb255", units="height", allowGUI=True)
+    win.mouseVisible = False   # hide the mouse cursor during the experiment
     kb = keyboard.Keyboard()
 
     try:
