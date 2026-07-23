@@ -22,8 +22,7 @@ TRẠNG THÁI NỀN — 3 phút LIÊN TỤC (giới thiệu trước, rồi 6 b�
    └─ Nhắm mắt nghỉ (120–180s)    → tiếng bíp + 'Mở mắt'
    ▼
 6 BÀI TẬP  (thứ tự NGẪU NHIÊN, nghỉ 1 phút giữa các bài)
-   mỗi bài:  Hướng dẫn → Đếm ngược 5s* → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
-   *Phép nhân KHÔNG có đếm ngược
+   mỗi bài:  Hướng dẫn → Đếm ngược 5s → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
    ▼
 Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 ```
@@ -59,14 +58,15 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 | 22 | **CPT-X** (nhiệm vụ) | 3:00 |
 | 23 | Nghỉ | 1:00 |
 | 24 | Hướng dẫn — Multiplication | ~0:30 |
-| 25 | **Multiplication** (nhiệm vụ) | 3:00 |
-| 26 | Nghỉ | 1:00 |
-| 27 | Hướng dẫn — Stroop A | ~0:30 |
-| 28 | Đếm ngược — Stroop A | 0:05 |
-| 29 | **Stroop A** (nhiệm vụ) | 3:00 |
-| 30 | Tổng kết | 0:08 |
+| 25 | Đếm ngược — Multiplication | 0:05 |
+| 26 | **Multiplication** (nhiệm vụ) | 3:00 |
+| 27 | Nghỉ | 1:00 |
+| 28 | Hướng dẫn — Stroop A | ~0:30 |
+| 29 | Đếm ngược — Stroop A | 0:05 |
+| 30 | **Stroop A** (nhiệm vụ) | 3:00 |
+| 31 | Tổng kết | 0:08 |
 
-**Tổng thời lượng xấp xỉ: ~29:35** — Hướng dẫn / Đếm ngược / Nhiệm vụ được **tách riêng**; trạng thái nền là 3 phút liên tục chia 6 bước. Hướng dẫn ~30s/bài (20s cho video); đếm ngược 5s (trừ Phép nhân). **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
+**Tổng thời lượng xấp xỉ: ~29:40** — Hướng dẫn / Đếm ngược / Nhiệm vụ được **tách riêng**; trạng thái nền là 3 phút liên tục chia 6 bước. Hướng dẫn ~30s/bài (20s cho video); đếm ngược 5s/bài. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
 
 
 ## 3. Các màn hình chung (phần phiên)
@@ -139,7 +139,7 @@ Kết thúc: **tiếng bíp** + chữ **“Mở mắt”** (Windows `winsound.Be
 | **Đọc truyện** (Fairy Tale) | 3:00 | SPACE/→ trang sau, ← trang trước | — | 5s |
 | **Phép cộng** (Addition) | 3:00 | phím số + ENTER (BACKSPACE xóa) | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | 5s |
 | **CPT-X** | 3:00 | X→**C**, chữ khác→**SPACE** | “Đúng” / “Sai” (~400ms) | 5s |
-| **Phép nhân** (Multiplication) | 3:00 | phím số + ENTER | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | **KHÔNG** |
+| **Phép nhân** (Multiplication) | 3:00 | phím số + ENTER | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | 5s |
 | **Stroop** | 3:00 | XANH DƯƠNG/XANH LÁ→**C**, ĐỎ/VÀNG→**M** | **chỉ “Sai”** (đúng = trống; quá giờ = “Phản hồi chậm”) | 5s |
 
 ### Chuỗi màn hình của mỗi bài tập
@@ -147,7 +147,7 @@ Kết thúc: **tiếng bíp** + chữ **“Mở mắt”** (Windows `winsound.Be
 Mỗi bài (trong phiên) diễn ra theo thứ tự:
 
 1. **Hướng dẫn** — tiêu đề + mô tả + thanh thời gian (tự bắt đầu sau ~30s; passive ~20s). Không bỏ qua bằng SPACE.
-2. **Đếm ngược** — 5 → … → 1  *(trừ Phép nhân: vào thẳng bài)*.
+2. **Đếm ngược** — 5 → … → 1 (mọi bài).
 3. **Nhiệm vụ** — kích thích lặp lại đến khi hết giờ.
 4. **Phản hồi** — hiện sau mỗi câu trả lời (xem bảng trên); Quan sát video & Đọc truyện không có.
 
@@ -208,7 +208,8 @@ Mỗi bài (trong phiên) diễn ra theo thứ tự:
 - **SPACE không bỏ qua** hướng dẫn / trạng thái nền / nhiệm vụ — chỉ **ESC** mới dừng; màn hình **kết thúc** vẫn đóng bằng SPACE.
 - **Trạng thái nền = 3 phút liên tục, 6 bước** (kiểm tra tín hiệu → mở mắt → chớp mắt → nhìn ngang → nhìn dọc → nhắm mắt); các bước nghỉ chỉ hiện dấu '+', các bước chủ động có hiệu lệnh/chấm dẫn. Hướng dẫn hiện **trước**.
 - **Tín hiệu ghi liên tục** suốt phiên — không phân biệt khối nào 'được ghi'.
-- **Phép nhân** không có đếm ngược; các bài khác đếm ngược **5s**.
+- Mọi bài đều có đếm ngược **5s** trước khi bắt đầu.
+- **Phép cộng & Phép nhân**: KHÔNG giới hạn thời gian mỗi câu (`response_window = None`) — giải liên tục đến khi hết giờ.
 - **Stroop**: chỉ báo **“Sai”** (không báo “Đúng”); quá giờ = “Phản hồi chậm” (xám).
 - **CPT-X**: báo **“Đúng”/“Sai”** ~400ms sau mỗi phản hồi (giữ nhịp cố định SOA 1500ms).
 - **Tiếng báo mở mắt**: Windows tone 1000Hz/500ms; macOS phát `Ping.aiff`; nền tảng khác im lặng (không lỗi).

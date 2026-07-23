@@ -131,7 +131,7 @@ ADDITION = {
 MULTIPLICATION = {
     "task_duration": 180000,     # 3 min, whole session
     "feedback_time": 1500,
-    "response_window": 20000,    # ms per problem; 20 s window then logged as no-response
+    "response_window": None,     # no per-problem limit (like Addition) — solve continuously until task_duration
     "min_operand": 10,
     "max_operand": 99,
     "max_input_digits": 5,
