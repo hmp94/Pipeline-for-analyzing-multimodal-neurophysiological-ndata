@@ -72,6 +72,15 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 ## 3. Các màn hình chung (phần phiên)
 
 
+### Hộp thoại thông tin (trước khi bắt đầu)
+
+> MSSV:  ______  
+> Age:  ______  
+> Gender:  [Female / Male / Other]  
+> Handedness:  [Right / Left / Ambidextrous]
+
+Hộp thoại PsychoPy hiện MỘT LẦN trước phiên; điền rồi bấm **OK** (Cancel để hủy). Giá trị MSSV = tên thư mục kết quả.
+
 ### Chào mừng (WELCOME)
 
 > Chào mừng bạn!  
