@@ -63,7 +63,6 @@ REF_H = 1080.0                            # font sizes below are pixels for a 10
 # Session-level durations (seconds) — edit in settings.py (cfg.SESSION).
 # The 3-min baseline schedule lives in cfg.SESSION["baseline_phases"].
 REST_S = cfg.SESSION["rest_s"]                        # rest between tasks, 1 min
-BASELINE_DOT_AMP = 0.35                               # eye-movement guide-dot amplitude (height units)
 WELCOME_S = cfg.SESSION["welcome_s"]                  # auto-advancing welcome screen
 FINAL_S = cfg.SESSION["final_s"]                      # final summary screen (SPACE closes early)
 
@@ -197,6 +196,18 @@ def run_baseline(win, kb, rows_out):
     big = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
                           height=h(96), font="Arial")
 
+    # Eye-movement guide-dot amplitudes (height units): reach ~90% toward the
+    # screen edges. Horizontal has far more room than vertical on a wide screen,
+    # so they differ — horizontal is derived from the window aspect ratio (x edge
+    # = aspect/2), vertical from the fixed y edge (0.5). Leaves a small margin so
+    # the dot isn't clipped on any display.
+    try:
+        aspect = float(win.size[0]) / float(win.size[1])
+    except Exception:
+        aspect = 16.0 / 9.0
+    hamp = min(0.82, aspect / 2.0 * 0.9)
+    vamp = 0.44
+
     rows_out.append({"task_type": "Baseline", "event": "baseline_start", "time_ms": 0})
     kb.clearEvents()
     block = core.Clock()
@@ -230,10 +241,11 @@ def run_baseline(win, kb, rows_out):
                 big.text = content.BASELINE_BLINK_CUE
                 hold([big, cap], per * 0.35, name)                # "Chớp mắt" -> blink now
         elif name in ("h_move", "v_move"):
-            seq = ([(-BASELINE_DOT_AMP, 0), (0, 0), (BASELINE_DOT_AMP, 0), (0, 0)]
+            seq = ([(-hamp, 0), (0, 0), (hamp, 0), (0, 0)]        # left-centre-right-centre
                    if name == "h_move" else
-                   [(0, BASELINE_DOT_AMP), (0, 0), (0, -BASELINE_DOT_AMP), (0, 0)])
+                   [(0, vamp), (0, 0), (0, -vamp), (0, 0)])       # up-centre-down-centre
             cap.text = content.BASELINE_MOVE_CAP
+            cap.pos = (0, -0.28)   # above the DOWN dot (which now sits near the edge) so no overlap
             per = secs / len(seq)
             for i, pos in enumerate(seq):
                 dot.pos = pos
