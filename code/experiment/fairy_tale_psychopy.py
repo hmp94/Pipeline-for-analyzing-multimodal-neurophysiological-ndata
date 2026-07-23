@@ -994,11 +994,9 @@ def show_instructions(win, kb, settings, auto_advance_s=30.0):
         update_time_bar(remaining / auto_advance_s)
         win.flip()
 
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
-            if k.name == "space":
-                return
 
 
 def show_countdown(win, settings, seconds=10):
