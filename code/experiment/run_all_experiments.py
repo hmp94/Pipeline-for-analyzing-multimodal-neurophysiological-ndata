@@ -8,7 +8,8 @@ processes, so it does not read from or need to match code/analysis/metadata.py.
 
 Shows ONE demographics dialog, opens ONE window, then runs:
 
-    baseline (eyes open, 90 s) -> baseline (eyes closed, 90 s)
+    baseline (3 min continuous: signal-check -> eyes-open -> blinks ->
+              horizontal eye moves -> vertical eye moves -> eyes-closed)
       -> countdown (5 s) -> task 1 (~180 s)
       -> rest (60 s) -> countdown (5 s) -> task 2 (~180 s)
       -> rest (60 s) -> countdown (5 s) -> task 3 ...
@@ -60,9 +61,9 @@ import cpt_x_psychopy as cpt_x
 
 REF_H = 1080.0                            # font sizes below are pixels for a 1080px-tall screen
 # Session-level durations (seconds) — edit in settings.py (cfg.SESSION).
-BASELINE_OPEN_S = cfg.SESSION["baseline_open_s"]      # eyes-open baseline, 1m30
-BASELINE_CLOSED_S = cfg.SESSION["baseline_closed_s"]  # eyes-closed baseline, 1m30
+# The 3-min baseline schedule lives in cfg.SESSION["baseline_phases"].
 REST_S = cfg.SESSION["rest_s"]                        # rest between tasks, 1 min
+BASELINE_DOT_AMP = 0.35                               # eye-movement guide-dot amplitude (height units)
 WELCOME_S = cfg.SESSION["welcome_s"]                  # auto-advancing welcome screen
 FINAL_S = cfg.SESSION["final_s"]                      # final summary screen (SPACE closes early)
 
@@ -164,56 +165,87 @@ def beep(freq=None, ms=None):
         pass
 
 
-def _baseline_phase(win, kb, rows_out, phase, seconds):
-    """One resting-baseline phase: hold ONLY a fixation cross for `seconds`.
+def _baseline_abort(kb, rows_out, phase, clock):
+    """Raise AbortSession (logging a marker) if ESC was pressed during baseline."""
+    for k in kb.getKeys(["escape"], waitRelease=False):
+        if k.name == "escape":
+            rows_out.append({"task_type": "Baseline", "event": f"{phase}_aborted",
+                             "time_ms": int(round(clock.getTime() * 1000))})
+            raise AbortSession
 
-    The instruction is shown beforehand (by the caller / run_baseline); during the
-    recording itself only the "+" is on screen — no caption. Runs the full
-    duration (SPACE cannot skip it). Logs <phase>_start / <phase>_end marker rows
-    (phase is "eyes_open" or "eyes_closed"). ESC raises AbortSession.
+
+def run_baseline(win, kb, rows_out):
+    """3-minute CONTINUOUS baseline for EEG / eye-artifact calibration.
+
+    One uninterrupted recording, split into timed sub-phases read from
+    cfg.SESSION["baseline_phases"]:
+        signal_check -> eyes_open -> blinks -> h_move -> v_move -> eyes_closed
+    The intro is shown by the caller. On-screen cues guide the active phases
+    (blinks, eye movements); resting phases show only "+". A <phase>_start marker
+    is logged at each boundary (plus blink_N / <phase>_stepN sub-markers). Ends
+    with a beep + "Mở mắt". SPACE cannot skip; ESC raises AbortSession.
     """
-    fixation = visual.TextStim(win, text="+", color=(255, 255, 255),
-                               colorSpace="rgb255", height=h(100), pos=(0, 0.02))
+    phases = cfg.SESSION["baseline_phases"]
+    n_blinks = int(cfg.SESSION.get("baseline_n_blinks", 5))
 
-    rows_out.append({"task_type": "Baseline", "event": f"{phase}_start", "time_ms": 0})
+    fixation = visual.TextStim(win, text="+", color=(255, 255, 255), colorSpace="rgb255",
+                               height=h(100), pos=(0, 0.02))
+    dot = visual.Circle(win, radius=0.028, units="height", fillColor=(255, 255, 255),
+                        lineColor=None, colorSpace="rgb255")
+    cap = visual.TextStim(win, text="", color=(160, 160, 160), colorSpace="rgb255",
+                          height=h(46), pos=(0, -0.36), wrapWidth=1.6, font="Arial")
+    big = visual.TextStim(win, text="", color=(255, 255, 255), colorSpace="rgb255",
+                          height=h(96), font="Arial")
+
+    rows_out.append({"task_type": "Baseline", "event": "baseline_start", "time_ms": 0})
     kb.clearEvents()
-    clock = core.Clock()
-    while clock.getTime() < seconds:
-        fixation.draw()
-        win.flip()
-        for k in kb.getKeys(["escape"], waitRelease=False):
-            if k.name == "escape":
-                rows_out.append({"task_type": "Baseline", "event": f"{phase}_aborted",
-                                 "time_ms": int(round(clock.getTime() * 1000))})
-                raise AbortSession
+    block = core.Clock()
 
-    rows_out.append({"task_type": "Baseline", "event": f"{phase}_end",
-                     "time_ms": int(round(clock.getTime() * 1000))})
+    def mark(event):
+        rows_out.append({"task_type": "Baseline", "event": event,
+                         "time_ms": int(round(block.getTime() * 1000))})
 
+    def hold(stims, seconds, phase):
+        pc = core.Clock()
+        while pc.getTime() < seconds:
+            for s in stims:
+                s.draw()
+            win.flip()
+            _baseline_abort(kb, rows_out, phase, block)
 
-def run_baseline(win, kb, rows_out, open_s=BASELINE_OPEN_S, closed_s=BASELINE_CLOSED_S):
-    """Two-phase resting baseline: eyes open (1m30) then eyes closed (1m30).
+    for name, secs in phases:
+        mark(f"{name}_start")
+        if name in ("signal_check", "eyes_open"):
+            hold([fixation], secs, name)                          # resting: "+" only
+        elif name == "eyes_closed":
+            big.text = content.BASELINE_CLOSE_EYES
+            hold([big], min(3.0, secs), name)                     # cue them to close eyes
+            hold([fixation], max(0.0, secs - 3.0), name)          # then hold (eyes closed)
+        elif name == "blinks":
+            cap.text = content.BASELINE_BLINK_CAP
+            per = secs / max(1, n_blinks)
+            for b in range(n_blinks):
+                hold([fixation, cap], per * 0.65, name)
+                mark(f"blink_{b + 1}")
+                big.text = content.BASELINE_BLINK_CUE
+                hold([big, cap], per * 0.35, name)                # "Chớp mắt" -> blink now
+        elif name in ("h_move", "v_move"):
+            seq = ([(-BASELINE_DOT_AMP, 0), (0, 0), (BASELINE_DOT_AMP, 0), (0, 0)]
+                   if name == "h_move" else
+                   [(0, BASELINE_DOT_AMP), (0, 0), (0, -BASELINE_DOT_AMP), (0, 0)])
+            cap.text = content.BASELINE_MOVE_CAP
+            per = secs / len(seq)
+            for i, pos in enumerate(seq):
+                dot.pos = pos
+                mark(f"{name}_step{i + 1}")
+                hold([dot, cap], per, name)                       # follow the guide dot
 
-    The eyes-open intro is shown by the caller; this shows the eyes-closed intro
-    between phases and an "open your eyes" cue at the end. SPACE is an
-    experimenter early-skip; ESC raises AbortSession. Marker rows are appended to
-    rows_out (eyes_open_* then eyes_closed_*).
-    """
-    _baseline_phase(win, kb, rows_out, "eyes_open", open_s)
-
-    # Participant reads this, then closes their eyes for the second phase.
-    show_message(win, kb, content.BASELINE_CLOSED_INTRO, seconds=WELCOME_S)
-    _baseline_phase(win, kb, rows_out, "eyes_closed", closed_s)
-
-    # "Open your eyes" cue: an audible beep (participants can't see the screen
-    # with eyes closed) plus the on-screen "Mở mắt" prompt. The beep is a Windows
-    # tone; silent no-op on macOS, where the experimenter announces it instead.
-    prompt = visual.TextStim(win, text=content.BASELINE_OPEN_EYES, color=(255, 255, 255),
-                             colorSpace="rgb255", height=h(120), font="Arial")
-    prompt.draw()
-    win.flip()
     beep()
+    big.text = content.BASELINE_OPEN_EYES
+    big.draw()
+    win.flip()
     core.wait(2.0)
+    mark("baseline_end")
     return content.BASELINE_RESULT
 
 

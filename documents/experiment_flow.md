@@ -13,10 +13,13 @@ Hộp thoại thông tin (MSSV, Age, Gender, Handedness)
    ▼
 Chào mừng (WELCOME, ~6s)
    ▼
-TRẠNG THÁI NỀN
-   ├─ Giới thiệu mở mắt  → Nền MỞ MẮT: chỉ dấu '+', 1:30   [GHI]
-   ├─ Giới thiệu nhắm mắt → Nền NHẮM MẮT: chỉ dấu '+', 1:30 [GHI]
-   └─ Tiếng bíp + chữ 'Mở mắt'
+TRẠNG THÁI NỀN — 3 phút LIÊN TỤC (giới thiệu trước, rồi 6 bước):
+   ├─ Kiểm tra tín hiệu (0–10s)   — nhìn dấu +
+   ├─ Mở mắt nghỉ (10–70s)        — nhìn dấu +
+   ├─ Chớp mắt (70–90s)           — 5 lần theo hiệu lệnh 'Chớp mắt'
+   ├─ Nhìn ngang (90–105s)        — theo chấm: trái–giữa–phải–giữa
+   ├─ Nhìn dọc (105–120s)         — theo chấm: lên–giữa–xuống–giữa
+   └─ Nhắm mắt nghỉ (120–180s)    → tiếng bíp + 'Mở mắt'
    ▼
 6 BÀI TẬP  (thứ tự NGẪU NHIÊN, nghỉ 1 phút giữa các bài)
    mỗi bài:  Hướng dẫn → Đếm ngược 5s* → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
@@ -30,37 +33,40 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 
 ## 2. Dòng thời gian (một ví dụ thứ tự ngẫu nhiên)
 
-| # | Khối | Thời lượng | Ghi tín hiệu |
-|---|------|-----------|:---:|
-| 1 | Chào mừng + giới thiệu nền | 0:12 |  |
-| 2 | Nền — mở mắt | 1:30 | ✓ |
-| 3 | Giới thiệu nhắm mắt | 0:06 |  |
-| 4 | Nền — nhắm mắt | 1:30 | ✓ |
-| 5 | Hướng dẫn — Passive Video | ~0:20 | | 
-| 6 | Đếm ngược — Passive Video | 0:05 | | 
-| 7 | **Passive Video** (nhiệm vụ) | 3:00 | ✓ |
-| 8 | Nghỉ | 1:00 | | 
-| 9 | Hướng dẫn — Addition | ~0:30 | | 
-| 10 | Đếm ngược — Addition | 0:05 | | 
-| 11 | **Addition** (nhiệm vụ) | 3:00 | ✓ |
-| 12 | Nghỉ | 1:00 | | 
-| 13 | Hướng dẫn — Fairy Tale | ~0:30 | | 
-| 14 | Đếm ngược — Fairy Tale | 0:05 | | 
-| 15 | **Fairy Tale** (nhiệm vụ) | 3:00 | ✓ |
-| 16 | Nghỉ | 1:00 | | 
-| 17 | Hướng dẫn — CPT-X | ~0:30 | | 
-| 18 | Đếm ngược — CPT-X | 0:05 | | 
-| 19 | **CPT-X** (nhiệm vụ) | 3:00 | ✓ |
-| 20 | Nghỉ | 1:00 | | 
-| 21 | Hướng dẫn — Multiplication | ~0:30 | | 
-| 22 | **Multiplication** (nhiệm vụ) | 3:00 | ✓ |
-| 23 | Nghỉ | 1:00 | | 
-| 24 | Hướng dẫn — Stroop A | ~0:30 | | 
-| 25 | Đếm ngược — Stroop A | 0:05 | | 
-| 26 | **Stroop A** (nhiệm vụ) | 3:00 | ✓ |
-| 27 | Tổng kết | 0:08 | |
+| # | Khối | Thời lượng |
+|---|------|-----------|
+| 1 | Chào mừng + giới thiệu nền | 0:12 |
+| 2 | Nền — Kiểm tra tín hiệu (0–10s) | 0:10 |
+| 3 | Nền — Mở mắt nghỉ (10–70s) | 1:00 |
+| 4 | Nền — Chớp mắt (5 lần) (70–90s) | 0:20 |
+| 5 | Nền — Nhìn ngang (90–105s) | 0:15 |
+| 6 | Nền — Nhìn dọc (105–120s) | 0:15 |
+| 7 | Nền — Nhắm mắt nghỉ (120–180s) | 1:00 |
+| 8 | Hướng dẫn — Passive Video | ~0:20 |
+| 9 | Đếm ngược — Passive Video | 0:05 |
+| 10 | **Passive Video** (nhiệm vụ) | 3:00 |
+| 11 | Nghỉ | 1:00 |
+| 12 | Hướng dẫn — Addition | ~0:30 |
+| 13 | Đếm ngược — Addition | 0:05 |
+| 14 | **Addition** (nhiệm vụ) | 3:00 |
+| 15 | Nghỉ | 1:00 |
+| 16 | Hướng dẫn — Fairy Tale | ~0:30 |
+| 17 | Đếm ngược — Fairy Tale | 0:05 |
+| 18 | **Fairy Tale** (nhiệm vụ) | 3:00 |
+| 19 | Nghỉ | 1:00 |
+| 20 | Hướng dẫn — CPT-X | ~0:30 |
+| 21 | Đếm ngược — CPT-X | 0:05 |
+| 22 | **CPT-X** (nhiệm vụ) | 3:00 |
+| 23 | Nghỉ | 1:00 |
+| 24 | Hướng dẫn — Multiplication | ~0:30 |
+| 25 | **Multiplication** (nhiệm vụ) | 3:00 |
+| 26 | Nghỉ | 1:00 |
+| 27 | Hướng dẫn — Stroop A | ~0:30 |
+| 28 | Đếm ngược — Stroop A | 0:05 |
+| 29 | **Stroop A** (nhiệm vụ) | 3:00 |
+| 30 | Tổng kết | 0:08 |
 
-**Tổng thời lượng xấp xỉ: ~29:41** — Hướng dẫn / Đếm ngược / Nhiệm vụ được **tách riêng**. Hướng dẫn ~30s/bài (20s cho video) vì không bỏ qua được bằng SPACE; đếm ngược 5s (trừ Phép nhân).
+**Tổng thời lượng xấp xỉ: ~29:35** — Hướng dẫn / Đếm ngược / Nhiệm vụ được **tách riêng**; trạng thái nền là 3 phút liên tục chia 6 bước. Hướng dẫn ~30s/bài (20s cho video); đếm ngược 5s (trừ Phép nhân). **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
 
 
 ## 3. Các màn hình chung (phần phiên)
@@ -80,33 +86,32 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 
 Tự chuyển sau ~6s.
 
-### Giới thiệu trạng thái nền — mở mắt (BASELINE_INTRO)
+### Giới thiệu trạng thái nền (BASELINE_INTRO)
 
-> Trạng thái nền — mở mắt  
+> Trạng thái nền (3 phút)  
 > &nbsp;  
-> Hãy giữ tư thế thoải mái, NGỒI YÊN và GIỮ MẮT MỞ.  
-> Không nhìn vào màn hình. Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.  
-> Nhiệm vụ bắt đầu khi dấu + xuất hiện.
+> Hãy làm theo hướng dẫn trên màn hình và GIỮ ĐẦU CỐ ĐỊNH:  
+> nhìn dấu +, chớp mắt theo hiệu lệnh,  
+> đưa mắt nhìn theo chấm (ngang rồi dọc),  
+> cuối cùng nhắm mắt cho đến khi nghe tiếng bíp.
 
-### Trạng thái nền — MỞ MẮT (ghi)
+Hiện MỘT LẦN trước khối 3 phút, giải thích cả chuỗi 6 bước.
 
-> +  (chỉ dấu cộng, KHÔNG có chữ chú thích)
+### Trạng thái nền — 3 phút LIÊN TỤC (6 bước)
 
-Giữ **1:30** (1m30). Ghi tín hiệu EEG/fNIRS/PPG.
+Một lần ghi liên tục; màn hình đổi nội dung ở mỗi mốc thời gian, GIỮ ĐẦU CỐ ĐỊNH suốt quá trình:
 
-### Giới thiệu trạng thái nền — nhắm mắt (BASELINE_CLOSED_INTRO)
+| Khoảng | Bước | Màn hình | Việc cần làm |
+|--------|------|----------|--------------|
+| 0–10s | Kiểm tra tín hiệu | dấu **+** | nhìn dấu +, giữ yên (kỹ thuật viên kiểm tra) |
+| 10–70s | Mở mắt nghỉ | dấu **+** | nhìn dấu +, thư giãn |
+| 70–90s | Chớp mắt | chữ **“Chớp mắt”** nhấp nháy | chớp mắt 5 lần theo hiệu lệnh |
+| 90–105s | Nhìn ngang | **chấm trắng** di chuyển | nhìn theo chấm: trái–giữa–phải–giữa |
+| 105–120s | Nhìn dọc | **chấm trắng** di chuyển | nhìn theo chấm: lên–giữa–xuống–giữa |
+| 120–180s | Nhắm mắt nghỉ | “Nhắm mắt lại” → dấu + | nhắm mắt đến khi nghe tiếng bíp |
 
-> Trạng thái nền — nhắm mắt  
-> &nbsp;  
-> Bây giờ hãy NHẮM MẮT lại và thư giãn.  
-> Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.  
-> Sẽ có âm thanh báo khi bạn cần mở mắt.
+Kết thúc: **tiếng bíp** + chữ **“Mở mắt”** (Windows `winsound.Beep` 1000Hz/500ms; macOS `afplay`).
 
-### Trạng thái nền — NHẮM MẮT (ghi)
-
-> +  (chỉ dấu cộng)
-
-Giữ **1:30** (1m30). Kết thúc bằng **tiếng bíp** + chữ 'Mở mắt' (Windows `winsound.Beep` 1000Hz/500ms; macOS `afplay`).
 
 ### Nghỉ giữa các bài (REST)
 
@@ -192,7 +197,8 @@ Mỗi bài (trong phiên) diễn ra theo thứ tự:
 
 - **Toàn màn hình** (`fullscr=True`) cho mọi bài.
 - **SPACE không bỏ qua** hướng dẫn / trạng thái nền / nhiệm vụ — chỉ **ESC** mới dừng; màn hình **kết thúc** vẫn đóng bằng SPACE.
-- **Trạng thái nền chỉ hiện dấu '+'** trong lúc ghi (không có chữ chú thích xám); hướng dẫn hiện **trước**.
+- **Trạng thái nền = 3 phút liên tục, 6 bước** (kiểm tra tín hiệu → mở mắt → chớp mắt → nhìn ngang → nhìn dọc → nhắm mắt); các bước nghỉ chỉ hiện dấu '+', các bước chủ động có hiệu lệnh/chấm dẫn. Hướng dẫn hiện **trước**.
+- **Tín hiệu ghi liên tục** suốt phiên — không phân biệt khối nào 'được ghi'.
 - **Phép nhân** không có đếm ngược; các bài khác đếm ngược **5s**.
 - **Stroop**: chỉ báo **“Sai”** (không báo “Đúng”); quá giờ = “Phản hồi chậm” (xám).
 - **CPT-X**: báo **“Đúng”/“Sai”** ~400ms sau mỗi phản hồi (giữ nhịp cố định SOA 1500ms).

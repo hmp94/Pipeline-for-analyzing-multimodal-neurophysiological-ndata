@@ -33,8 +33,18 @@ def defaults(section):
 # Session-level (run_all_experiments.py) — SECONDS
 # ─────────────────────────────────────────────────────────────────────────────
 SESSION = {
-    "baseline_open_s": 90.0,     # eyes-open resting baseline (1m30)
-    "baseline_closed_s": 90.0,   # eyes-closed resting baseline (1m30)
+    # 3-minute continuous baseline, run as timed sub-phases (name, seconds).
+    # signal_check -> eyes_open -> blinks -> h_move (horizontal) -> v_move (vertical)
+    # -> eyes_closed.  Sum should be 180 s.  (One continuous recording.)
+    "baseline_phases": [
+        ("signal_check", 10),    # 0-10s   fixation "+", experimenter checks signal
+        ("eyes_open", 60),       # 10-70s  eyes-open resting (fixation "+")
+        ("blinks", 20),          # 70-90s  controlled eye blinks (n = baseline_n_blinks)
+        ("h_move", 15),          # 90-105s horizontal eye movements (left-centre-right-centre)
+        ("v_move", 15),          # 105-120 vertical eye movements (up-centre-down-centre)
+        ("eyes_closed", 60),     # 120-180 eyes-closed resting (alpha check)
+    ],
+    "baseline_n_blinks": 5,      # number of guided blinks in the blink phase
     "rest_s": 60.0,              # rest between tasks (1 min)
     "countdown_s": 5,           # pre-task "N..1" countdown before each task (must be int)
     "welcome_s": 6.0,            # auto-advancing welcome screen

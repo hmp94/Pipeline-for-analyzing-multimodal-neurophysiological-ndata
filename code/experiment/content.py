@@ -33,27 +33,31 @@ WELCOME = [
     "hướng dẫn trên màn hình trước mỗi bài tập.",
 ]
 
-# Shown just before the resting baseline block starts.
+# Shown ONCE before the 3-minute baseline block (explains the whole sequence).
 BASELINE_INTRO = [
-    "Trạng thái nền — mở mắt", "",
-    "Hãy giữ tư thế thoải mái, NGỒI YÊN và GIỮ MẮT MỞ.",
-    "Không nhìn vào màn hình. Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.",
-    "Nhiệm vụ bắt đầu khi dấu + xuất hiện.",
+    "Trạng thái nền (3 phút)", "",
+    "Hãy làm theo hướng dẫn trên màn hình và GIỮ ĐẦU CỐ ĐỊNH:",
+    "nhìn dấu +, chớp mắt theo hiệu lệnh,",
+    "đưa mắt nhìn theo chấm (ngang rồi dọc),",
+    "cuối cùng nhắm mắt cho đến khi nghe tiếng bíp.",
 ]
 
-# Caption under the fixation cross during the eyes-open baseline recording.
+# Caption under the fixation "+" during the resting sub-phases.
 BASELINE_CAPTION = "Trạng thái nền — mở mắt, thư giãn, giữ yên"
 
-# --- Resting baseline: eyes-closed phase (shown second) --------------------
-# Shown just before the eyes-closed baseline block starts (read, then close eyes).
+# --- Cues shown DURING the 3-minute baseline sub-phases --------------------
+BASELINE_BLINK_CAP = "Chớp mắt mỗi khi màn hình hiện chữ (5 lần)"  # caption during the blink phase
+BASELINE_BLINK_CUE = "Chớp mắt"                                    # flashing blink prompt
+BASELINE_MOVE_CAP = "Nhìn theo chấm — giữ đầu cố định"             # caption during the eye-movement phases
+BASELINE_CLOSE_EYES = "Nhắm mắt lại"                              # prompt at start of the eyes-closed phase
+
+# (kept for the standalone Stroop baseline / older references)
 BASELINE_CLOSED_INTRO = [
     "Trạng thái nền — nhắm mắt", "",
     "Bây giờ hãy NHẮM MẮT lại và thư giãn.",
     "Không suy nghĩ hay thực hiện bất kỳ chuyển động nào.",
     "Sẽ có âm thanh báo khi bạn cần mở mắt.",
 ]
-
-# Caption held during the eyes-closed baseline recording (for the experimenter).
 BASELINE_CLOSED_CAPTION = "Trạng thái nền — nhắm mắt, thư giãn, giữ yên"
 
 # Big prompt shown when the eyes-closed phase ends.
