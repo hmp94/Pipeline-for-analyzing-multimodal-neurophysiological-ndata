@@ -25,12 +25,11 @@ WELCOME = [
     "Chào mừng bạn!",
     "",
     "Hôm nay chúng ta sẽ có 7 nhiệm vụ.",
-    "Nhiệm vụ đầu tiên của bạn là đo trạng thái nền ",
-    "(bạn sẽ được yêu cầu mở mắt trong 1 phút 30 giây rồi nhắm mắt trong 1 phút 30 giây),",
-    "tiếp theo đó sẽ là sáu bài tập ngắn.",
-    "Bạn sẽ thực hiện lần lượt từng nhiệm vụ.",
-    "Mọi thứ diễn ra tự động — bạn chỉ thực hiện theo",
-    "hướng dẫn trên màn hình trước mỗi bài tập.",
+    "Đầu tiên là đo trạng thái nền (khoảng 3 phút):",
+    "nhìn dấu +, chớp mắt, đưa mắt theo hướng dẫn,",
+    "rồi nhắm mắt.",
+    "Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt.",
+    "Mọi thứ tự động — làm theo hướng dẫn trên màn hình.",
 ]
 
 # Shown ONCE before the 3-minute baseline block (explains the whole sequence).
