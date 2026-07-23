@@ -50,11 +50,12 @@ SESSION = {
     "welcome_s": 6.0,            # auto-advancing welcome screen
     "final_s": 8.0,             # final summary screen (SPACE closes early)
     # "Open your eyes" audio cue at the end of the eyes-closed baseline.
-    # Windows: winsound.Beep tone (beep_freq_hz / beep_ms).
-    # macOS:   afplay a system sound file (beep_sound_mac).
-    "beep_freq_hz": 1000,       # Windows tone frequency (Hz), 37..32767
-    "beep_ms": 500,             # Windows tone duration (ms)
-    "beep_sound_mac": "/System/Library/Sounds/Ping.aiff",  # macOS cue (any /System/Library/Sounds/*.aiff)
+    # Plays beep_file (a WAV next to the scripts) — Windows via winsound, else afplay.
+    # If beep_file is missing, falls back to a winsound tone / macOS system sound.
+    "beep_file": "beep.wav",    # trimmed beep (silence removed) played on all platforms
+    "beep_freq_hz": 1000,       # fallback Windows tone frequency (Hz), 37..32767
+    "beep_ms": 500,             # fallback Windows tone duration (ms)
+    "beep_sound_mac": "/System/Library/Sounds/Ping.aiff",  # fallback macOS system sound
 }
 
 
@@ -101,7 +102,8 @@ CPT = {
 # ─────────────────────────────────────────────────────────────────────────────
 PASSIVE_VIDEO = {
     "task_duration": 180000,   # 3 min
-    "n_dots": 220,             # dots in the optic-flow fallback field
+    "video_file": "cloud_5min.mp4",  # played (looped) next to the script; None/missing -> optic flow
+    "n_dots": 220,             # dots in the optic-flow FALLBACK field (used if no video)
     "flow_speed": 0.75,        # radial expansion per second (larger = faster)
     "dot_size": 0.006,         # base dot size in 'height' units
     "font_sizes": {"instruction": 56, "title": 96},

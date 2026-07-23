@@ -144,22 +144,27 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
                 return
 
 
-def beep(freq=None, ms=None):
-    """Audible 'open your eyes' cue for the end of the eyes-closed baseline.
+def beep():
+    """Audible 'open your eyes' cue at the end of the eyes-closed baseline.
 
-    Cross-platform, no extra dependency: Windows plays a tone via winsound.Beep;
-    macOS plays a system sound via afplay (cfg.SESSION["beep_sound_mac"]). On any
-    other platform / on failure it is a silent no-op — never raises. Tone/sound
-    are set in settings.py.
+    Plays cfg.SESSION["beep_file"] (a WAV next to the scripts): Windows via
+    winsound.PlaySound, other platforms via afplay. If the file is missing it
+    falls back to a winsound tone (Windows) / macOS system sound. Never raises.
     """
+    fname = cfg.SESSION.get("beep_file")
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), fname) if fname else ""
+    have = bool(path) and os.path.exists(path)
     try:
         if sys.platform == "win32":
             import winsound
-            winsound.Beep(int(freq or cfg.SESSION["beep_freq_hz"]),
-                          int(ms or cfg.SESSION["beep_ms"]))
-        elif sys.platform == "darwin":
+            if have:
+                winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            else:
+                winsound.Beep(int(cfg.SESSION["beep_freq_hz"]), int(cfg.SESSION["beep_ms"]))
+        else:
             import subprocess
-            subprocess.Popen(["afplay", cfg.SESSION["beep_sound_mac"]])
+            subprocess.Popen(["afplay", path if have else
+                              cfg.SESSION.get("beep_sound_mac", "/System/Library/Sounds/Ping.aiff")])
     except Exception:
         pass
 

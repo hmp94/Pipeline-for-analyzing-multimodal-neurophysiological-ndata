@@ -117,7 +117,7 @@ Một lần ghi liên tục; màn hình đổi nội dung ở mỗi mốc thời
 | 105–120s | Nhìn dọc | **chấm trắng** di chuyển | nhìn theo chấm: lên–giữa–xuống–giữa |
 | 120–180s | Nhắm mắt nghỉ | “Nhắm mắt lại” → dấu + | nhắm mắt đến khi nghe tiếng bíp |
 
-Kết thúc: **tiếng bíp** + chữ **“Mở mắt”** (Windows `winsound.Beep` 1000Hz/500ms; macOS `afplay`).
+Kết thúc: **tiếng bíp** (`beep.wav`, đã cắt khoảng lặng ~0.4s) + chữ **“Mở mắt”** (Windows `winsound.PlaySound`; macOS/khác `afplay`; thiếu file → tone dự phòng).
 
 
 ### Nghỉ giữa các bài (REST)
@@ -206,6 +206,7 @@ Mỗi bài (trong phiên) diễn ra theo thứ tự:
 - **SPACE không bỏ qua** hướng dẫn / trạng thái nền / nhiệm vụ — chỉ **ESC** mới dừng; màn hình **kết thúc** vẫn đóng bằng SPACE.
 - **Trạng thái nền = 3 phút liên tục, 6 bước** (kiểm tra tín hiệu → mở mắt → chớp mắt → nhìn ngang → nhìn dọc → nhắm mắt); các bước nghỉ chỉ hiện dấu '+', các bước chủ động có hiệu lệnh/chấm dẫn. Hướng dẫn hiện **trước**.
 - **Tín hiệu ghi liên tục** suốt phiên — không phân biệt khối nào 'được ghi'.
+- **Quan sát video**: phát `cloud_5min.mp4` (loop, 3 phút); nếu thiếu file → hoạt ảnh optic-flow.
 - Mọi bài đều có đếm ngược **5s** trước khi bắt đầu.
 - **Phép cộng & Phép nhân**: KHÔNG giới hạn thời gian mỗi câu (`response_window = None`) — giải liên tục đến khi hết giờ.
 - **Stroop**: chỉ báo **“Sai”** (không báo “Đúng”); quá giờ = “Phản hồi chậm” (xám).

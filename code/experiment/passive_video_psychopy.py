@@ -181,9 +181,18 @@ def show_countdown(win, settings, seconds=10):
 # Stimulus
 # --------------------------------------------------------------------------- #
 def find_video():
-    """Path to a drop-in video file next to this script, or None."""
+    """Path to the passive-observation video next to this script, or None.
+
+    Uses cfg.PASSIVE_VIDEO["video_file"] if set and present; otherwise falls back
+    to any passive_video.<ext> drop-in. Returns None -> the optic-flow animation.
+    """
     base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) \
         else os.path.dirname(os.path.abspath(__file__))
+    cfgname = cfg.PASSIVE_VIDEO.get("video_file")
+    if cfgname:
+        p = cfgname if os.path.isabs(cfgname) else os.path.join(base, cfgname)
+        if os.path.exists(p):
+            return p
     for ext in VIDEO_EXTS:
         path = os.path.join(base, VIDEO_BASENAME + ext)
         if os.path.exists(path):
