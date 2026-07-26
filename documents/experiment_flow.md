@@ -11,7 +11,7 @@ Tài liệu này mô tả **toàn bộ màn hình người tham gia thấy** và
 Hộp thoại thông tin (MSSV, Age, Gender, Handedness)
    │
    ▼
-Chào mừng (WELCOME, ~6s)
+Chào mừng (WELCOME) — nhấn phím cách (SPACE) để bắt đầu phiên
    ▼
 TRẠNG THÁI NỀN — 3 phút LIÊN TỤC (giới thiệu trước, rồi 6 bước):
    ├─ Kiểm tra tín hiệu (0–10s)   — nhìn dấu +
@@ -22,51 +22,52 @@ TRẠNG THÁI NỀN — 3 phút LIÊN TỤC (giới thiệu trước, rồi 6 b�
    └─ Nhắm mắt nghỉ (120–180s)    → tiếng bíp + 'Mở mắt'
    ▼
 6 BÀI TẬP  (thứ tự NGẪU NHIÊN, nghỉ 1 phút giữa các bài)
-   mỗi bài:  Hướng dẫn (nhấn SPACE) → Đếm ngược 3s → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
+   mỗi bài:  Hướng dẫn (tự động) → Đếm ngược 3s → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
    ▼
 Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 ```
 - **ESC**: dừng cả phiên (dữ liệu đã làm vẫn được lưu).
-- **SPACE**: bắt đầu bài tập ở màn hình **hướng dẫn** (khi người tham gia đã sẵn sàng), và đóng màn hình **kết thúc**. SPACE không bỏ qua trạng thái nền / nhiệm vụ.
+- **SPACE**: nhấn **một lần** ở màn hình **chào mừng** để bắt đầu phiên; và đóng màn hình **kết thúc**. Trong các bài, SPACE không bỏ qua hướng dẫn / nhiệm vụ.
 
 
 ## 2. Dòng thời gian (một ví dụ thứ tự ngẫu nhiên)
 
 | # | Khối | Thời lượng |
 |---|------|-----------|
-| 1 | Chào mừng + giới thiệu nền | 0:12 |
-| 2 | Nền — Kiểm tra tín hiệu (0–10s) | 0:10 |
-| 3 | Nền — Mở mắt nghỉ (10–70s) | 1:00 |
-| 4 | Nền — Chớp mắt (5 lần) (70–90s) | 0:20 |
-| 5 | Nền — Nhìn ngang (90–105s) | 0:15 |
-| 6 | Nền — Nhìn dọc (105–120s) | 0:15 |
-| 7 | Nền — Nhắm mắt nghỉ (120–180s) | 1:00 |
-| 8 | Hướng dẫn — Passive Video | tự nhấn SPACE |
-| 9 | Đếm ngược — Passive Video | 0:03 |
-| 10 | **Passive Video** (nhiệm vụ) | 3:00 |
-| 11 | Nghỉ | 1:00 |
-| 12 | Hướng dẫn — Addition | tự nhấn SPACE |
-| 13 | Đếm ngược — Addition | 0:03 |
-| 14 | **Addition** (nhiệm vụ) | 3:00 |
-| 15 | Nghỉ | 1:00 |
-| 16 | Hướng dẫn — Fairy Tale | tự nhấn SPACE |
-| 17 | Đếm ngược — Fairy Tale | 0:03 |
-| 18 | **Fairy Tale** (nhiệm vụ) | 3:00 |
-| 19 | Nghỉ | 1:00 |
-| 20 | Hướng dẫn — CPT-X | tự nhấn SPACE |
-| 21 | Đếm ngược — CPT-X | 0:03 |
-| 22 | **CPT-X** (nhiệm vụ) | 3:00 |
-| 23 | Nghỉ | 1:00 |
-| 24 | Hướng dẫn — Multiplication | tự nhấn SPACE |
-| 25 | Đếm ngược — Multiplication | 0:03 |
-| 26 | **Multiplication** (nhiệm vụ) | 3:00 |
-| 27 | Nghỉ | 1:00 |
-| 28 | Hướng dẫn — Stroop A | tự nhấn SPACE |
-| 29 | Đếm ngược — Stroop A | 0:03 |
-| 30 | **Stroop A** (nhiệm vụ) | 3:00 |
-| 31 | Tổng kết | 0:08 |
+| 1 | Chào mừng — nhấn SPACE để bắt đầu | tự bắt đầu |
+| 2 | Giới thiệu trạng thái nền | 0:06 |
+| 3 | Nền — Kiểm tra tín hiệu (0–10s) | 0:10 |
+| 4 | Nền — Mở mắt nghỉ (10–70s) | 1:00 |
+| 5 | Nền — Chớp mắt (5 lần) (70–90s) | 0:20 |
+| 6 | Nền — Nhìn ngang (90–105s) | 0:15 |
+| 7 | Nền — Nhìn dọc (105–120s) | 0:15 |
+| 8 | Nền — Nhắm mắt nghỉ (120–180s) | 1:00 |
+| 9 | Hướng dẫn — Passive Video | ~0:20 |
+| 10 | Đếm ngược — Passive Video | 0:03 |
+| 11 | **Passive Video** (nhiệm vụ) | 3:00 |
+| 12 | Nghỉ | 1:00 |
+| 13 | Hướng dẫn — Addition | ~0:30 |
+| 14 | Đếm ngược — Addition | 0:03 |
+| 15 | **Addition** (nhiệm vụ) | 3:00 |
+| 16 | Nghỉ | 1:00 |
+| 17 | Hướng dẫn — Fairy Tale | ~0:30 |
+| 18 | Đếm ngược — Fairy Tale | 0:03 |
+| 19 | **Fairy Tale** (nhiệm vụ) | 3:00 |
+| 20 | Nghỉ | 1:00 |
+| 21 | Hướng dẫn — CPT-X | ~0:30 |
+| 22 | Đếm ngược — CPT-X | 0:03 |
+| 23 | **CPT-X** (nhiệm vụ) | 3:00 |
+| 24 | Nghỉ | 1:00 |
+| 25 | Hướng dẫn — Multiplication | ~0:30 |
+| 26 | Đếm ngược — Multiplication | 0:03 |
+| 27 | **Multiplication** (nhiệm vụ) | 3:00 |
+| 28 | Nghỉ | 1:00 |
+| 29 | Hướng dẫn — Stroop A | ~0:30 |
+| 30 | Đếm ngược — Stroop A | 0:03 |
+| 31 | **Stroop A** (nhiệm vụ) | 3:00 |
+| 32 | Tổng kết | 0:08 |
 
-**Tổng thời lượng cố định: ~26:38** — *chưa tính thời gian đọc hướng dẫn*, vì mỗi bài **bắt đầu khi người tham gia nhấn phím cách (SPACE)**, rồi **đếm ngược 3s** trước nhiệm vụ. Trạng thái nền là 3 phút liên tục chia 6 bước. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
+**Tổng thời lượng xấp xỉ: ~29:22** — người tham gia nhấn **SPACE một lần** ở màn hình chào mừng để bắt đầu; sau đó mọi màn hình tự chuyển. Mỗi bài: **hướng dẫn tự động** (~30s; ~20s cho video) → **đếm ngược 3s** → nhiệm vụ. Trạng thái nền là 3 phút liên tục chia 6 bước. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
 
 
 ## 3. Các màn hình chung (phần phiên)
@@ -91,7 +92,7 @@ Hộp thoại PsychoPy hiện MỘT LẦN trước phiên; điền rồi bấm *
 > &nbsp;  
 > Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt theo chỉ dẫn
 
-Tự chuyển sau ~6s.
+Nhấn phím cách (SPACE) để bắt đầu phiên (lần nhấn phím duy nhất của phiên).
 
 ### Giới thiệu trạng thái nền (BASELINE_INTRO)
 
@@ -144,8 +145,8 @@ Kết thúc: **tiếng bíp** (`beep.wav`, đã cắt khoảng lặng ~0.4s) + c
 
 Mỗi bài (trong phiên) diễn ra theo thứ tự:
 
-1. **Hướng dẫn** — tiêu đề + mô tả; **nhấn phím cách (SPACE) khi sẵn sàng** để bắt đầu (không giới hạn thời gian đọc).
-2. **Đếm ngược** — 3 → … → 1 (3s), sau khi nhấn SPACE.
+1. **Hướng dẫn** — tiêu đề + mô tả + thanh thời gian (tự chuyển sau ~30s; ~20s cho video). Không cần nhấn phím.
+2. **Đếm ngược** — 3 → … → 1 (3s).
 3. **Nhiệm vụ** — kích thích lặp lại đến khi hết giờ.
 4. **Phản hồi** — hiện sau mỗi câu trả lời (xem bảng trên); Quan sát video & Đọc truyện không có.
 
@@ -207,7 +208,7 @@ Mỗi bài (trong phiên) diễn ra theo thứ tự:
 - **Trạng thái nền = 3 phút liên tục, 6 bước** (kiểm tra tín hiệu → mở mắt → chớp mắt → nhìn ngang → nhìn dọc → nhắm mắt); các bước nghỉ chỉ hiện dấu '+', các bước chủ động có hiệu lệnh/chấm dẫn. Hướng dẫn hiện **trước**.
 - **Tín hiệu ghi liên tục** suốt phiên — không phân biệt khối nào 'được ghi'.
 - **Quan sát video**: phát `cloud_5min.mp4` (loop, 3 phút); nếu thiếu file → hoạt ảnh optic-flow.
-- Mỗi bài: **nhấn phím cách (SPACE)** ở màn hình hướng dẫn → **đếm ngược 3s** → bắt đầu nhiệm vụ.
+- **Nhấn SPACE một lần** ở màn hình chào mừng để bắt đầu phiên. Sau đó mỗi bài tự chạy: **hướng dẫn (tự động)** → **đếm ngược 3s** → nhiệm vụ.
 - **Phép cộng & Phép nhân**: KHÔNG giới hạn thời gian mỗi câu (`response_window = None`) — giải liên tục đến khi hết giờ.
 - **Stroop**: chỉ báo **“Sai”** (không báo “Đúng”); quá giờ = “Phản hồi chậm” (xám).
 - **CPT-X**: báo **“Đúng”/“Sai”** ~400ms sau mỗi phản hồi (giữ nhịp cố định SOA 1500ms).

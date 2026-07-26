@@ -8,21 +8,22 @@ processes, so it does not read from or need to match code/analysis/metadata.py.
 
 Shows ONE demographics dialog, opens ONE window, then runs:
 
-    baseline (3 min continuous: signal-check -> eyes-open -> blinks ->
-              horizontal eye moves -> vertical eye moves -> eyes-closed)
-      -> instructions (press SPACE) -> 3 s countdown -> task 1 (~180 s)
-      -> rest (60 s) -> instructions (press SPACE) -> 3 s countdown -> task 2 ...
-      -> rest (60 s) -> instructions (press SPACE) -> 3 s countdown -> task 3 ...
+    welcome: press SPACE to begin (the ONE key press of the session)
+      -> baseline (3 min continuous: signal-check -> eyes-open -> blinks ->
+                   horizontal eye moves -> vertical eye moves -> eyes-closed)
+      -> instructions (auto) -> 3 s countdown -> task 1 (~180 s)
+      -> rest (60 s) -> instructions (auto) -> 3 s countdown -> task 2 ...
+      -> rest (60 s) -> instructions (auto) -> 3 s countdown -> task 3 ...
 
 The six cognitive tasks (Passive Video, Fairy Tale, Addition, CPT-X,
 Multiplication, Stroop) run in a RANDOMIZED order; each lasts ~180 s. There is
 NO rest before the first task (the baseline flows straight into the first task's
 instructions), and NO rest after the last.
 
-Each task's instruction screen waits for the participant to press SPACE ("press
-when ready"); a short 3-2-1 countdown then runs before the task. The baseline and
-the welcome/rest screens auto-advance on their own. ESC aborts the whole session
-(all data collected so far is saved).
+The participant presses SPACE once, on the welcome screen, to start the session;
+after that every screen advances on its own. Each task shows an auto-advancing
+instruction screen then a short 3-2-1 countdown before the task begins. ESC aborts
+the whole session (all data collected so far is saved).
 
 Because every task shares the one window, the screen never flashes between
 tasks — useful when EEG/fNIRS/PPG are recording continuously.
@@ -141,6 +142,30 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
             if k.name == "escape":
                 raise AbortSession
             if k.name == "space" and skip_hint:   # only the final summary closes on SPACE
+                return
+
+
+def wait_for_start(win, kb, lines):
+    """Opening welcome screen: show `lines` + a "press SPACE to begin" hint, wait for SPACE.
+
+    This is the ONE key press of the session — the participant starts when ready.
+    Every later screen (baseline, task instructions, rests) advances on its own.
+    ESC raises AbortSession.
+    """
+    body = visual.TextStim(win, text="\n".join(lines), color=(255, 255, 255),
+                           colorSpace="rgb255", height=h(60), pos=(0, 0.06),
+                           wrapWidth=1.6, alignText="center", font="Arial")
+    hint = visual.TextStim(win, text=content.START_HINT, color=(160, 160, 160),
+                           colorSpace="rgb255", height=h(34), pos=(0, -0.40), font="Arial")
+    kb.clearEvents()
+    while True:
+        body.draw()
+        hint.draw()
+        win.flip()
+        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+            if k.name == "escape":
+                raise AbortSession
+            if k.name == "space":
                 return
 
 
@@ -329,7 +354,7 @@ def main():
     kb = keyboard.Keyboard()
 
     try:
-        show_message(win, kb, content.WELCOME, seconds=WELCOME_S)
+        wait_for_start(win, kb, content.WELCOME)   # ONE SPACE press starts the whole session
 
         # F0 resting baseline — first, no rest before it.
         show_message(win, kb, content.BASELINE_INTRO, seconds=WELCOME_S)

@@ -76,11 +76,14 @@ FINAL_NO_TASKS = "(chưa ghi được bài tập nào)"
 # Footer shown only on the final screen (SPACE to close).
 FOOTER_SKIP = "Nhấn SPACE để kết thúc"
 
+# Hint on the opening welcome screen — the ONE SPACE press that starts the session.
+START_HINT = "Nhấn phím cách (SPACE) để bắt đầu"
+
 # Result word logged/shown for the baseline block.
 BASELINE_RESULT = "đã ghi"
 
-# Shared hint under every task's instruction screen (participant presses SPACE to begin).
-INSTRUCTION_HINT = "Nhấn phím cách (SPACE) khi bạn đã sẵn sàng để bắt đầu."
+# Shared hint under every task's instruction screen (below the time bar).
+INSTRUCTION_HINT = "Bài tập sẽ bắt đầu khi thanh thời gian kết thúc."
 
 
 # ─────────────────────────────────────────────────────────────────────────────

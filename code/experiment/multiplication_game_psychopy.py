@@ -149,10 +149,12 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings):
-    """Instruction screen; waits for the participant to press SPACE to begin.
+def show_instructions(win, kb, settings, auto_advance_s=30.0):
+    """Instruction screen; auto-advances after auto_advance_s seconds.
 
-    The task starts when the participant presses SPACE ("press when ready"); ESC aborts.
+    A depleting time bar (not a number) shows how much reading time is left;
+    when it empties the task starts. ESC aborts. (The participant presses SPACE
+    only once, at the start of the whole session, not on each task.)
     """
     fs = settings["font_sizes"]
     white = (255, 255, 255)
@@ -167,18 +169,23 @@ def show_instructions(win, kb, settings):
     hint = visual.TextStim(win, text=content.INSTRUCTION_HINT,
                            color=(160, 160, 160), colorSpace="rgb255",
                            height=h(34), pos=(0, -0.36), font="Arial")
+    update_time_bar = make_time_bar(win)
+
     kb.clearEvents()
+    clock = core.Clock()
     while True:
+        remaining = auto_advance_s - clock.getTime()
+        if remaining <= 0:
+            return
         for s in stims:
             s.draw()
         hint.draw()
+        update_time_bar(remaining / auto_advance_s)
         win.flip()
 
-        for k in kb.getKeys(["space", "escape"], waitRelease=False):
+        for k in kb.getKeys(["escape"], waitRelease=False):
             if k.name == "escape":
                 raise AbortBlock
-            if k.name == "space":
-                return
 
 
 def show_countdown(win, settings, seconds=10):
