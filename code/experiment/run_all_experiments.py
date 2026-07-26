@@ -10,19 +10,19 @@ Shows ONE demographics dialog, opens ONE window, then runs:
 
     baseline (3 min continuous: signal-check -> eyes-open -> blinks ->
               horizontal eye moves -> vertical eye moves -> eyes-closed)
-      -> instructions (press SPACE when ready) -> task 1 (~180 s)
-      -> rest (60 s) -> instructions (press SPACE) -> task 2 (~180 s)
-      -> rest (60 s) -> instructions (press SPACE) -> task 3 ...
+      -> instructions (press SPACE) -> 3 s countdown -> task 1 (~180 s)
+      -> rest (60 s) -> instructions (press SPACE) -> 3 s countdown -> task 2 ...
+      -> rest (60 s) -> instructions (press SPACE) -> 3 s countdown -> task 3 ...
 
 The six cognitive tasks (Passive Video, Fairy Tale, Addition, CPT-X,
 Multiplication, Stroop) run in a RANDOMIZED order; each lasts ~180 s. There is
 NO rest before the first task (the baseline flows straight into the first task's
 instructions), and NO rest after the last.
 
-Each task begins when the participant reads its instruction screen and presses
-SPACE ("press when ready") — there is no pre-task countdown. The baseline and the
-welcome/rest screens still auto-advance on their own. ESC aborts the whole
-session (all data collected so far is saved).
+Each task's instruction screen waits for the participant to press SPACE ("press
+when ready"); a short 3-2-1 countdown then runs before the task. The baseline and
+the welcome/rest screens auto-advance on their own. ESC aborts the whole session
+(all data collected so far is saved).
 
 Because every task shares the one window, the screen never flashes between
 tasks — useful when EEG/fNIRS/PPG are recording continuously.
@@ -341,8 +341,8 @@ def main():
             label = module.TASK_LABEL
             if i > 0:
                 # Rest only BETWEEN tasks (never before the first). Each task's
-                # own instruction screen (shown inside module.run) waits for the
-                # participant to press SPACE before the task starts.
+                # instruction screen (waits for SPACE) + 3s countdown run inside
+                # module.run, right before the task starts.
                 show_message(win, kb, content.REST, seconds=REST_S)
             summary = module.run(win, kb, participant, demographics, rows_out=all_rows)
             summaries.append((label, summary))

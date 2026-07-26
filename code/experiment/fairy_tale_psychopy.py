@@ -1074,6 +1074,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     events = []
     try:
         show_instructions(win, kb, settings)
+        show_countdown(win, settings, seconds=cfg.SESSION["countdown_s"])
         run_reading(win, kb, title, pages, settings, events)
     finally:
         for r in events:

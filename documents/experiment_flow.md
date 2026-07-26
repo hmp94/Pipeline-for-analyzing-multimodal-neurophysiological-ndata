@@ -22,7 +22,7 @@ TRẠNG THÁI NỀN — 3 phút LIÊN TỤC (giới thiệu trước, rồi 6 b�
    └─ Nhắm mắt nghỉ (120–180s)    → tiếng bíp + 'Mở mắt'
    ▼
 6 BÀI TẬP  (thứ tự NGẪU NHIÊN, nghỉ 1 phút giữa các bài)
-   mỗi bài:  Hướng dẫn (nhấn SPACE khi sẵn sàng) → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
+   mỗi bài:  Hướng dẫn (nhấn SPACE) → Đếm ngược 3s → Nhiệm vụ (~3:00) → (phản hồi trong lúc làm)
    ▼
 Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 ```
@@ -42,25 +42,31 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 | 6 | Nền — Nhìn dọc (105–120s) | 0:15 |
 | 7 | Nền — Nhắm mắt nghỉ (120–180s) | 1:00 |
 | 8 | Hướng dẫn — Passive Video | tự nhấn SPACE |
-| 9 | **Passive Video** (nhiệm vụ) | 3:00 |
-| 10 | Nghỉ | 1:00 |
-| 11 | Hướng dẫn — Addition | tự nhấn SPACE |
-| 12 | **Addition** (nhiệm vụ) | 3:00 |
-| 13 | Nghỉ | 1:00 |
-| 14 | Hướng dẫn — Fairy Tale | tự nhấn SPACE |
-| 15 | **Fairy Tale** (nhiệm vụ) | 3:00 |
-| 16 | Nghỉ | 1:00 |
-| 17 | Hướng dẫn — CPT-X | tự nhấn SPACE |
-| 18 | **CPT-X** (nhiệm vụ) | 3:00 |
+| 9 | Đếm ngược — Passive Video | 0:03 |
+| 10 | **Passive Video** (nhiệm vụ) | 3:00 |
+| 11 | Nghỉ | 1:00 |
+| 12 | Hướng dẫn — Addition | tự nhấn SPACE |
+| 13 | Đếm ngược — Addition | 0:03 |
+| 14 | **Addition** (nhiệm vụ) | 3:00 |
+| 15 | Nghỉ | 1:00 |
+| 16 | Hướng dẫn — Fairy Tale | tự nhấn SPACE |
+| 17 | Đếm ngược — Fairy Tale | 0:03 |
+| 18 | **Fairy Tale** (nhiệm vụ) | 3:00 |
 | 19 | Nghỉ | 1:00 |
-| 20 | Hướng dẫn — Multiplication | tự nhấn SPACE |
-| 21 | **Multiplication** (nhiệm vụ) | 3:00 |
-| 22 | Nghỉ | 1:00 |
-| 23 | Hướng dẫn — Stroop A | tự nhấn SPACE |
-| 24 | **Stroop A** (nhiệm vụ) | 3:00 |
-| 25 | Tổng kết | 0:08 |
+| 20 | Hướng dẫn — CPT-X | tự nhấn SPACE |
+| 21 | Đếm ngược — CPT-X | 0:03 |
+| 22 | **CPT-X** (nhiệm vụ) | 3:00 |
+| 23 | Nghỉ | 1:00 |
+| 24 | Hướng dẫn — Multiplication | tự nhấn SPACE |
+| 25 | Đếm ngược — Multiplication | 0:03 |
+| 26 | **Multiplication** (nhiệm vụ) | 3:00 |
+| 27 | Nghỉ | 1:00 |
+| 28 | Hướng dẫn — Stroop A | tự nhấn SPACE |
+| 29 | Đếm ngược — Stroop A | 0:03 |
+| 30 | **Stroop A** (nhiệm vụ) | 3:00 |
+| 31 | Tổng kết | 0:08 |
 
-**Tổng thời lượng cố định: ~26:20** — *chưa tính thời gian đọc hướng dẫn*, vì mỗi bài **tự bắt đầu khi người tham gia nhấn phím cách (SPACE)**. Trạng thái nền là 3 phút liên tục chia 6 bước; **không còn đếm ngược** trước mỗi bài. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
+**Tổng thời lượng cố định: ~26:38** — *chưa tính thời gian đọc hướng dẫn*, vì mỗi bài **bắt đầu khi người tham gia nhấn phím cách (SPACE)**, rồi **đếm ngược 3s** trước nhiệm vụ. Trạng thái nền là 3 phút liên tục chia 6 bước. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
 
 
 ## 3. Các màn hình chung (phần phiên)
@@ -125,22 +131,23 @@ Kết thúc: **tiếng bíp** (`beep.wav`, đã cắt khoảng lặng ~0.4s) + c
 
 ## 4. Sáu bài tập
 
-| Bài tập | Thời lượng | Phím trả lời | Phản hồi sau khi trả lời |
-|--------|:---------:|-------------|--------------------------|
-| **Quan sát video** (Passive Video) | 3:00 | — (thụ động) | — |
-| **Đọc truyện** (Fairy Tale) | 3:00 | SPACE/→ trang sau, ← trang trước | — |
-| **Phép cộng** (Addition) | 3:00 | phím số + ENTER (BACKSPACE xóa) | “Đúng!” / “Sai! Đáp án: N” (~1.5s) |
-| **CPT-X** | 3:00 | X→**C**, chữ khác→**SPACE** | “Đúng” / “Sai” (~400ms) |
-| **Phép nhân** (Multiplication) | 3:00 | phím số + ENTER | “Đúng!” / “Sai! Đáp án: N” (~1.5s) |
-| **Stroop** | 3:00 | XANH DƯƠNG/XANH LÁ→**C**, ĐỎ/VÀNG→**M** | **chỉ “Sai”** (đúng = trống; quá giờ = “Phản hồi chậm”) |
+| Bài tập | Thời lượng | Phím trả lời | Phản hồi sau khi trả lời | Đếm ngược |
+|--------|:---------:|-------------|--------------------------|:---:|
+| **Quan sát video** (Passive Video) | 3:00 | — (thụ động) | — | 3s |
+| **Đọc truyện** (Fairy Tale) | 3:00 | SPACE/→ trang sau, ← trang trước | — | 3s |
+| **Phép cộng** (Addition) | 3:00 | phím số + ENTER (BACKSPACE xóa) | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | 3s |
+| **CPT-X** | 3:00 | X→**C**, chữ khác→**SPACE** | “Đúng” / “Sai” (~400ms) | 3s |
+| **Phép nhân** (Multiplication) | 3:00 | phím số + ENTER | “Đúng!” / “Sai! Đáp án: N” (~1.5s) | 3s |
+| **Stroop** | 3:00 | XANH DƯƠNG/XANH LÁ→**C**, ĐỎ/VÀNG→**M** | **chỉ “Sai”** (đúng = trống; quá giờ = “Phản hồi chậm”) | 3s |
 
 ### Chuỗi màn hình của mỗi bài tập
 
 Mỗi bài (trong phiên) diễn ra theo thứ tự:
 
-1. **Hướng dẫn** — tiêu đề + mô tả; **nhấn phím cách (SPACE) khi sẵn sàng** để bắt đầu (không giới hạn thời gian đọc, không còn đếm ngược).
-2. **Nhiệm vụ** — kích thích lặp lại đến khi hết giờ.
-3. **Phản hồi** — hiện sau mỗi câu trả lời (xem bảng trên); Quan sát video & Đọc truyện không có.
+1. **Hướng dẫn** — tiêu đề + mô tả; **nhấn phím cách (SPACE) khi sẵn sàng** để bắt đầu (không giới hạn thời gian đọc).
+2. **Đếm ngược** — 3 → … → 1 (3s), sau khi nhấn SPACE.
+3. **Nhiệm vụ** — kích thích lặp lại đến khi hết giờ.
+4. **Phản hồi** — hiện sau mỗi câu trả lời (xem bảng trên); Quan sát video & Đọc truyện không có.
 
 
 ### Nội dung hướng dẫn từng bài (chữ hiển thị)
@@ -200,7 +207,7 @@ Mỗi bài (trong phiên) diễn ra theo thứ tự:
 - **Trạng thái nền = 3 phút liên tục, 6 bước** (kiểm tra tín hiệu → mở mắt → chớp mắt → nhìn ngang → nhìn dọc → nhắm mắt); các bước nghỉ chỉ hiện dấu '+', các bước chủ động có hiệu lệnh/chấm dẫn. Hướng dẫn hiện **trước**.
 - **Tín hiệu ghi liên tục** suốt phiên — không phân biệt khối nào 'được ghi'.
 - **Quan sát video**: phát `cloud_5min.mp4` (loop, 3 phút); nếu thiếu file → hoạt ảnh optic-flow.
-- Mỗi bài **bắt đầu khi người tham gia nhấn phím cách (SPACE)** ở màn hình hướng dẫn — **không còn đếm ngược** trước bài.
+- Mỗi bài: **nhấn phím cách (SPACE)** ở màn hình hướng dẫn → **đếm ngược 3s** → bắt đầu nhiệm vụ.
 - **Phép cộng & Phép nhân**: KHÔNG giới hạn thời gian mỗi câu (`response_window = None`) — giải liên tục đến khi hết giờ.
 - **Stroop**: chỉ báo **“Sai”** (không báo “Đúng”); quá giờ = “Phản hồi chậm” (xám).
 - **CPT-X**: báo **“Đúng”/“Sai”** ~400ms sau mỗi phản hồi (giữ nhịp cố định SOA 1500ms).

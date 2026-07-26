@@ -324,6 +324,7 @@ def run(win, kb, participant, demographics, settings=None, rows_out=None):
     events = []
     try:
         show_instructions(win, kb, settings)
+        show_countdown(win, settings, seconds=cfg.SESSION["countdown_s"])
         video = find_video()
         if not (video and run_movie(win, kb, video, events, duration_s)):
             run_flow(win, kb, settings, events, duration_s)
