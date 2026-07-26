@@ -24,11 +24,8 @@ Notes
 WELCOME = [
     "Chào mừng bạn!",
     "",
-    "Hôm nay chúng ta sẽ có 7 nhiệm vụ.",
-    "Đầu tiên là đo trạng thái nền (khoảng 3 phút):",
-    "Hãy nhìn dấu \"+\" theo hướng dẫn trên màn hình",
-    "",
-    "Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt theo chỉ dẫn",
+    "Hôm nay chúng ta sẽ có 7 nhiệm vụ, thực hiện theo hướng dẫn.",
+    "Nhấn phím SPACE để bắt đầu",
 ]
 
 # Shown ONCE before the 3-minute baseline block (explains the whole sequence).
@@ -75,9 +72,6 @@ FINAL_NO_TASKS = "(chưa ghi được bài tập nào)"
 
 # Footer shown only on the final screen (SPACE to close).
 FOOTER_SKIP = "Nhấn SPACE để kết thúc"
-
-# Hint on the opening welcome screen — the ONE SPACE press that starts the session.
-START_HINT = "Nhấn phím cách (SPACE) để bắt đầu"
 
 # Result word logged/shown for the baseline block.
 BASELINE_RESULT = "đã ghi"

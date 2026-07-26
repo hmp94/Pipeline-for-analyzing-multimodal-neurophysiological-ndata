@@ -86,11 +86,8 @@ Hộp thoại PsychoPy hiện MỘT LẦN trước phiên; điền rồi bấm *
 
 > Chào mừng bạn!  
 > &nbsp;  
-> Hôm nay chúng ta sẽ có 7 nhiệm vụ.  
-> Đầu tiên là đo trạng thái nền (khoảng 3 phút):  
-> Hãy nhìn dấu "+" theo hướng dẫn trên màn hình  
-> &nbsp;  
-> Tiếp theo là sáu bài tập ngắn, thực hiện lần lượt theo chỉ dẫn
+> Hôm nay chúng ta sẽ có 7 nhiệm vụ, thực hiện theo hướng dẫn.  
+> Nhấn phím SPACE để bắt đầu
 
 Nhấn phím cách (SPACE) để bắt đầu phiên (lần nhấn phím duy nhất của phiên).
 

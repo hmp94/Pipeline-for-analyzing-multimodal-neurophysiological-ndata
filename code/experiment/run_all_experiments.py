@@ -146,21 +146,18 @@ def show_message(win, kb, lines, seconds, allow_skip=True, skip_hint=False):
 
 
 def wait_for_start(win, kb, lines):
-    """Opening welcome screen: show `lines` + a "press SPACE to begin" hint, wait for SPACE.
+    """Opening welcome screen: show `lines` (which include the SPACE cue), wait for SPACE.
 
     This is the ONE key press of the session — the participant starts when ready.
     Every later screen (baseline, task instructions, rests) advances on its own.
     ESC raises AbortSession.
     """
     body = visual.TextStim(win, text="\n".join(lines), color=(255, 255, 255),
-                           colorSpace="rgb255", height=h(60), pos=(0, 0.06),
+                           colorSpace="rgb255", height=h(60), pos=(0, 0.0),
                            wrapWidth=1.6, alignText="center", font="Arial")
-    hint = visual.TextStim(win, text=content.START_HINT, color=(160, 160, 160),
-                           colorSpace="rgb255", height=h(34), pos=(0, -0.40), font="Arial")
     kb.clearEvents()
     while True:
         body.draw()
-        hint.draw()
         win.flip()
         for k in kb.getKeys(["space", "escape"], waitRelease=False):
             if k.name == "escape":
