@@ -79,8 +79,8 @@ FOOTER_SKIP = "Nhấn SPACE để kết thúc"
 # Result word logged/shown for the baseline block.
 BASELINE_RESULT = "đã ghi"
 
-# Shared hint under every task's instruction screen (below the time bar).
-INSTRUCTION_HINT = "Bài tập sẽ bắt đầu khi thanh thời gian kết thúc."
+# Shared hint under every task's instruction screen (participant presses SPACE to begin).
+INSTRUCTION_HINT = "Nhấn phím cách (SPACE) khi bạn đã sẵn sàng để bắt đầu."
 
 
 # ─────────────────────────────────────────────────────────────────────────────

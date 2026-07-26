@@ -46,7 +46,7 @@ SESSION = {
     ],
     "baseline_n_blinks": 5,      # number of guided blinks in the blink phase
     "rest_s": 60.0,              # rest between tasks (1 min)
-    "countdown_s": 5,           # pre-task "N..1" countdown before each task (must be int)
+    "countdown_s": 5,           # (unused) tasks now start when the participant presses SPACE
     "welcome_s": 6.0,            # auto-advancing welcome screen
     "final_s": 8.0,             # final summary screen (SPACE closes early)
     # "Open your eyes" audio cue at the end of the eyes-closed baseline.
