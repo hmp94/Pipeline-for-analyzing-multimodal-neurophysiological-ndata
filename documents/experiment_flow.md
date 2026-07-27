@@ -35,39 +35,39 @@ Tổng kết (FINAL, ~8s — nhấn SPACE để đóng)
 | # | Khối | Thời lượng |
 |---|------|-----------|
 | 1 | Chào mừng — nhấn SPACE để bắt đầu | tự bắt đầu |
-| 2 | Giới thiệu trạng thái nền | 0:06 |
+| 2 | Giới thiệu trạng thái nền | 0:10 |
 | 3 | Nền — Kiểm tra tín hiệu (0–10s) | 0:10 |
 | 4 | Nền — Mở mắt nghỉ (10–70s) | 1:00 |
 | 5 | Nền — Chớp mắt (5 lần) (70–90s) | 0:20 |
 | 6 | Nền — Nhìn ngang (90–105s) | 0:15 |
 | 7 | Nền — Nhìn dọc (105–120s) | 0:15 |
 | 8 | Nền — Nhắm mắt nghỉ (120–180s) | 1:00 |
-| 9 | Hướng dẫn — Passive Video | ~0:15 |
+| 9 | Hướng dẫn — Passive Video | ~0:10 |
 | 10 | Đếm ngược — Passive Video | 0:03 |
 | 11 | **Passive Video** (nhiệm vụ) | 3:00 |
 | 12 | Nghỉ | 1:00 |
-| 13 | Hướng dẫn — Addition | ~0:15 |
+| 13 | Hướng dẫn — Addition | ~0:10 |
 | 14 | Đếm ngược — Addition | 0:03 |
 | 15 | **Addition** (nhiệm vụ) | 3:00 |
 | 16 | Nghỉ | 1:00 |
-| 17 | Hướng dẫn — Fairy Tale | ~0:15 |
+| 17 | Hướng dẫn — Fairy Tale | ~0:10 |
 | 18 | Đếm ngược — Fairy Tale | 0:03 |
 | 19 | **Fairy Tale** (nhiệm vụ) | 3:00 |
 | 20 | Nghỉ | 1:00 |
-| 21 | Hướng dẫn — CPT-X | ~0:15 |
+| 21 | Hướng dẫn — CPT-X | ~0:10 |
 | 22 | Đếm ngược — CPT-X | 0:03 |
 | 23 | **CPT-X** (nhiệm vụ) | 3:00 |
 | 24 | Nghỉ | 1:00 |
-| 25 | Hướng dẫn — Multiplication | ~0:15 |
+| 25 | Hướng dẫn — Multiplication | ~0:10 |
 | 26 | Đếm ngược — Multiplication | 0:03 |
 | 27 | **Multiplication** (nhiệm vụ) | 3:00 |
 | 28 | Nghỉ | 1:00 |
-| 29 | Hướng dẫn — Stroop A | ~0:15 |
+| 29 | Hướng dẫn — Stroop A | ~0:10 |
 | 30 | Đếm ngược — Stroop A | 0:03 |
 | 31 | **Stroop A** (nhiệm vụ) | 3:00 |
 | 32 | Tổng kết | 0:08 |
 
-**Tổng thời lượng xấp xỉ: ~28:02** — người tham gia nhấn **SPACE một lần** ở màn hình chào mừng để bắt đầu; sau đó mọi màn hình tự chuyển. Mỗi bài: **hướng dẫn tự động** (~15s) → **đếm ngược 3s** → nhiệm vụ. Trạng thái nền là 3 phút liên tục chia 6 bước. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
+**Tổng thời lượng xấp xỉ: ~27:36** — người tham gia nhấn **SPACE một lần** ở màn hình chào mừng để bắt đầu; sau đó mọi màn hình tự chuyển. Mỗi bài: **hướng dẫn tự động** (~10s) → **đếm ngược 3s** → nhiệm vụ. Trạng thái nền là 3 phút liên tục chia 6 bước. **Tín hiệu được ghi liên tục suốt phiên** — không đánh dấu ghi theo từng khối.
 
 
 ## 3. Các màn hình chung (phần phiên)
@@ -142,7 +142,7 @@ Kết thúc: **tiếng bíp** (`beep.wav`, đã cắt khoảng lặng ~0.4s) + c
 
 Mỗi bài (trong phiên) diễn ra theo thứ tự:
 
-1. **Hướng dẫn** — tiêu đề + mô tả + thanh thời gian (tự chuyển sau ~15s). Không cần nhấn phím.
+1. **Hướng dẫn** — tiêu đề + mô tả + thanh thời gian (tự chuyển sau ~10s). Không cần nhấn phím.
 2. **Đếm ngược** — 3 → … → 1 (3s).
 3. **Nhiệm vụ** — kích thích lặp lại đến khi hết giờ.
 4. **Phản hồi** — hiện sau mỗi câu trả lời (xem bảng trên); Quan sát video & Đọc truyện không có.

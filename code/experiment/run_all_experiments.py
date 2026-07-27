@@ -64,7 +64,7 @@ REF_H = 1080.0                            # font sizes below are pixels for a 10
 # Session-level durations (seconds) — edit in settings.py (cfg.SESSION).
 # The 3-min baseline schedule lives in cfg.SESSION["baseline_phases"].
 REST_S = cfg.SESSION["rest_s"]                        # rest between tasks, 1 min
-WELCOME_S = cfg.SESSION["welcome_s"]                  # auto-advancing welcome screen
+WELCOME_S = cfg.SESSION["welcome_s"]                  # baseline-intro screen duration
 FINAL_S = cfg.SESSION["final_s"]                      # final summary screen (SPACE closes early)
 
 # The six tasks. Order is randomized per session.

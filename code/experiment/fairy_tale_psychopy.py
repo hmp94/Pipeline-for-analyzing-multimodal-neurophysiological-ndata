@@ -961,7 +961,7 @@ def get_session_info():
     return participant, demographics
 
 
-def show_instructions(win, kb, settings, auto_advance_s=15.0):
+def show_instructions(win, kb, settings, auto_advance_s=10.0):
     """Instruction screen; auto-advances after auto_advance_s seconds.
 
     A depleting time bar (not a number) shows how much reading time is left;
