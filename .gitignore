@@ -21,7 +21,3 @@ code/fnirs_plots/
 # Backup copies
 code/*2.py
 code/*\ 2.py
-
-# Experiment session results (behavioural output)
-code/results/
-code/experiment/results/
