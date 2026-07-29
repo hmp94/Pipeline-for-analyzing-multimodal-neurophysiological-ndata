@@ -1,0 +1,36 @@
+{
+  "session": "24072026_20260724_111931",
+  "saved_at": "2026-07-24T11:49:11",
+  "task_order": [
+    "Baseline",
+    "Stroop A",
+    "CPT-X",
+    "Fairy Tale",
+    "Multiplication",
+    "Passive Video",
+    "Addition"
+  ],
+  "completed": [
+    "Baseline",
+    "Stroop A",
+    "CPT-X",
+    "Fairy Tale",
+    "Multiplication",
+    "Passive Video",
+    "Addition"
+  ],
+  "aborted": false,
+  "results": {
+    "Baseline": "đã ghi",
+    "Stroop A": "121/134 trả lời đúng, 2 phản hồi chậm",
+    "CPT-X": "117/119 đúng",
+    "Fairy Tale": "8/158 trang",
+    "Multiplication": "0/3 trả lời đúng",
+    "Passive Video": "đã xem",
+    "Addition": "16/18 trả lời đúng"
+  },
+  "participant": "24072026",
+  "age": "39",
+  "gender": "Female",
+  "handedness": "Right"
+}

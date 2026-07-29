@@ -1,0 +1,36 @@
+{
+  "session": "111190232_20260724_094224",
+  "saved_at": "2026-07-24T10:12:04",
+  "task_order": [
+    "Baseline",
+    "Fairy Tale",
+    "Passive Video",
+    "Addition",
+    "CPT-X",
+    "Stroop A",
+    "Multiplication"
+  ],
+  "completed": [
+    "Baseline",
+    "Fairy Tale",
+    "Passive Video",
+    "Addition",
+    "CPT-X",
+    "Stroop A",
+    "Multiplication"
+  ],
+  "aborted": false,
+  "results": {
+    "Baseline": "đã ghi",
+    "Fairy Tale": "16/158 trang",
+    "Passive Video": "đã xem",
+    "Addition": "15/19 trả lời đúng",
+    "CPT-X": "114/119 đúng, 1 bỏ lỡ",
+    "Stroop A": "101/119 trả lời đúng, 1 phản hồi chậm",
+    "Multiplication": "5/7 trả lời đúng"
+  },
+  "participant": "111190232",
+  "age": "25",
+  "gender": "Male",
+  "handedness": "Right"
+}

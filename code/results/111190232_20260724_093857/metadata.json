@@ -1,0 +1,20 @@
+{
+  "session": "111190232_20260724_093857",
+  "saved_at": "2026-07-24T09:39:16",
+  "task_order": [
+    "Baseline",
+    "Addition",
+    "Stroop A",
+    "CPT-X",
+    "Passive Video",
+    "Fairy Tale",
+    "Multiplication"
+  ],
+  "completed": [],
+  "aborted": true,
+  "results": {},
+  "participant": "111190232",
+  "age": "25",
+  "gender": "Male",
+  "handedness": "Right"
+}
