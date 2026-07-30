@@ -31,14 +31,27 @@ per the mapping in `code/analysis/metadata.py`:
 
 | Column | Signal | Rate |
 |--------|--------|------|
-| `Header 24 Data` | EEG AF4 (differential AF4−T8) | 244 Hz, dense |
-| `Header 25 Data` | PPG | 100 Hz, sparse |
-| `Header 26 Data` | EEG AF3 (differential AF3−T7) | 244 Hz, dense |
-| `Header 27 Data` | fNIRS red, ~730 nm | 100 Hz, sparse |
-| `Header 28 Data` | fNIRS infrared, ~850 nm | 100 Hz, sparse |
+| `Header 24 Data` | EEG AF4 (differential AF4−T8) | 244 Hz |
+| `Header 25 Data` | PPG | 100 Hz |
+| `Header 26 Data` | EEG AF3 (differential AF3−T7) | 244 Hz |
+| `Header 27 Data` | fNIRS red, ~730 nm | 100 Hz |
+| `Header 28 Data` | fNIRS infrared, ~850 nm | 100 Hz |
 
-There is one row per EEG sample at 244 Hz; the PPG and fNIRS columns are left empty on rows that
-fall between their 100 Hz samples, so roughly 59% of cells in those three columns are blank.
+Verified against the data: both EEG columns carry a 50.1 Hz mains peak plus an 8.1 Hz alpha peak;
+PPG and both fNIRS columns agree on a 1.200 Hz cardiac rhythm (72 bpm), and the fNIRS pulsatile
+amplitude is 1.85× larger on IR than on red, the correct ordering for 850 vs 730 nm.
+
+**The row layout is blocked, not interleaved.** The two rates share one row grid, but the slower
+signals are packed at the top rather than spread through it: in `ban_29_14_40`, rows 0–166,445 carry
+all five columns and rows 166,446–405,488 carry the two EEG columns only. So the EEG gives
+405,489 samples / 244 Hz = 1661.8 s and PPG/fNIRS give 166,446 / 100 Hz = 1664.5 s — the same
+recording, written at two rates. Read the slower columns by dropping blanks and dividing by 100 Hz;
+do not treat a row index as a timestamp for them.
+
+One consequence worth knowing: `fnirs_check.truncate_nan()` cuts at the *first* blank rather than
+dropping blanks, which is only equivalent because the blanks are contiguous at the tail. If a future
+export ever interleaves them, fNIRS would silently collapse to a handful of samples while PPG
+(which calls `.dropna()`) would survive.
 
 Verify integrity with `shasum -a 256 -c SHA256SUMS.txt`.
 
