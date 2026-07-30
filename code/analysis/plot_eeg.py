@@ -161,14 +161,11 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
     for ch in ("AF3", "AF4"):
         seg = proc[ch][s0:s1][:len(tz)]
         ax3.plot(tz, seg, lw=0.9, color=CH_COLORS[ch], zorder=4,
-                 label=f"{ch}_processed  (used by the analysis)")
-        if ch in denoised:
-            dseg = denoised[ch][s0:s1][:len(tz)]
-            ax3.plot(tz, dseg, lw=0.7, color=CH_COLORS[ch], alpha=0.45, ls="--",
-                     zorder=3, label=f"{ch}_denoised  (WPT, NOT used)")
+                 label=f"{ch}_processed")
     label = next((w["label"] for w in windows if w["t_start"] <= zoom_at < w["t_end"]), "?")
     ax3.set_xlim(tz[0], tz[-1])
-    ax3.set_title(f"Zoom — {zoom_len:g} s from t={zoom_at:.0f} s, inside “{label}”", fontsize=9)
+    ax3.set_title(f"AF3_processed / AF4_processed — zoom, {zoom_len:g} s from "
+                  f"t={zoom_at:.0f} s, inside “{label}”", fontsize=9)
     ax3.set_xlabel("Time (s)", fontsize=8)
     ax3.set_ylabel("µV", fontsize=8)
     ax3.legend(loc="upper right", fontsize=7, ncol=2)
@@ -192,8 +189,8 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
     ax4.set_xticks(xs)
     ax4.set_xticklabels(labels, fontsize=8)
     ax4.set_ylabel("band power (µV²), log", fontsize=8)
-    ax4.set_title("Band power per block, both channels pooled  "
-                  "— the baseline is one bar but six sub-phases, so read it with care",
+    ax4.set_title("AF3_processed + AF4_processed — band power per block, channels pooled  "
+                  "(baseline is one bar but six sub-phases, so read it with care)",
                   fontsize=9)
     ax4.legend(loc="upper right", fontsize=7, ncol=4)
     ax4.grid(True, alpha=0.25, axis="y", zorder=0)
