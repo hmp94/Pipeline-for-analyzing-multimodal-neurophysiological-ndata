@@ -311,12 +311,18 @@ def timeline_legend(windows):
 
 
 
-def shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max=None):
+def shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max=None,
+                   alpha=0.35, annotate=True):
     """Colour spans + bracket arrows + labels for each task window.
 
-    x_scale : multiply window times (1.0 = seconds, 1/60 = minutes).
-    x_max   : skip annotations for windows starting at or beyond this value
+    x_scale  : multiply window times (1.0 = seconds, 1/60 = minutes).
+    x_max    : skip annotations for windows starting at or beyond this value
                (prevents bbox expansion for short recordings).
+    alpha    : span opacity. Lower it when the shading sits behind a dense trace
+               that it would otherwise compete with.
+    annotate : draw the bracket arrows and block labels. Set False on stacked
+               panels that share one x-axis, so the ruler is drawn once at the
+               bottom rather than repeated under every panel.
     """
     tick_half = 0.018
 
@@ -338,9 +344,9 @@ def shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max
             num_match = re.search(r"\d+", w["label"])
             num = int(num_match.group()) if num_match else 1
             color = WIN_COLORS["task_odd"] if num % 2 == 1 else WIN_COLORS["task_even"]
-        ax.axvspan(x0, x1_draw, alpha=0.35, color=color, lw=0)
+        ax.axvspan(x0, x1_draw, alpha=alpha, color=color, lw=0)
 
-        if w["is_interval"] or w.get("is_prefocus"):
+        if not annotate or w["is_interval"] or w.get("is_prefocus"):
             continue
 
         arrow_color = "#1f5fbf" if w["is_baseline"] else "#555555"

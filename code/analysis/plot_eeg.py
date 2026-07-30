@@ -79,11 +79,23 @@ BEHAVIORS_DIR = os.path.join(REPO_ROOT, "code", "results", "behaviors")
 EDF_DIR       = os.path.join(REPO_ROOT, "data", "derived", "eeg_bl", "edf")
 GRAPH_DIR     = os.path.join(REPO_ROOT, "graph", "eeg_bl")
 
-BANDS = [("delta", 1, 4, "#6b7280"), ("theta", 4, 8, "#0891b2"),
-         ("alpha", EEG_ALPHA[0], EEG_ALPHA[1], "#2563eb"),
-         ("beta", EEG_BETA[0], EEG_BETA[1], "#dc2626")]
+#: Frequency bands are ORDERED (delta → beta), so they take a one-hue ordinal
+#: ramp light→dark rather than four categorical hues — a rainbow here would imply
+#: the bands are unrelated categories. Steps 250/400/550/700 of the blue ramp;
+#: validated ordinal (monotone L, min step gap 0.141 ≥ 0.06, light end 2.06:1 ≥ 2.0,
+#: hue spread 3.6°).
+BANDS = [("delta", 1, 4, "#86b6ef"),
+         ("theta", 4, 8, "#3987e5"),
+         ("alpha", EEG_ALPHA[0], EEG_ALPHA[1], "#1c5cab"),
+         ("beta", EEG_BETA[0], EEG_BETA[1], "#0d366b")]
 
-CH_COLORS = {"AF3": "#1f5fbf", "AF4": "#c2410c"}
+#: Two channels = categorical identity, same hue for the same channel in every
+#: panel. Slots 1 and 2; validated categorical (CVD ΔE 24.7 ≥ 8 target,
+#: normal-vision ΔE 33.6 ≥ 15 floor, both ≥ 3:1 on the light surface).
+CH_COLORS = {"AF3": "#2a78d6", "AF4": "#eb6834"}
+
+SHADE_ALPHA = 0.16        # recessive: the blocks are context, the trace is data
+INK = "#52514e"           # axis/grid ink, kept off pure black
 
 
 def find_edf(stem):
@@ -190,22 +202,32 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
         ax = fig.add_subplot(gs[i])
         x = proc[ch]
         t, lo, hi = envelope(x, fs)
-        shade_timeline(ax, windows, x_scale=1.0, x_max=dur)
+        # Only the lower of the two shares the block ruler — repeating it under
+        # every panel is four copies of one axis.
+        shade_timeline(ax, windows, x_scale=1.0, x_max=dur,
+                       alpha=SHADE_ALPHA, annotate=(i == 1))
         ax.fill_between(t, lo, hi, color=CH_COLORS[ch], lw=0, zorder=3)
         ax.set_xlim(0, dur)
         ylo, yhi = robust_ylim(x)
         ax.set_ylim(ylo, yhi)
         off = float(np.mean(np.abs(x) > yhi)) * len(x) / fs      # seconds off-screen
-        ax.set_title(f"{ch}_processed — DC-blocked, notched 60/50/32 Hz, "
-                     f"bandpass 1–35 Hz   robust SD {robust_sd(x):.1f} µV "
-                     f"(plain RMS {np.std(x):.1f} µV)   "
-                     f"true range {np.nanmin(x):,.0f} … {np.nanmax(x):,.0f} µV, "
-                     f"y-axis ±{yhi:,.0f} so {off:.1f} s is drawn off-screen",
-                     fontsize=9)
-        ax.set_xlabel("Time (s)", fontsize=8)
-        ax.set_ylabel("µV", fontsize=8)
-        ax.grid(True, alpha=0.25, zorder=0)
-        ax.tick_params(labelsize=7)
+        ax.set_title(f"{ch}_processed        robust SD {robust_sd(x):.0f} µV   "
+                     f"(RMS {np.std(x):.0f} µV — inflated by transients)        "
+                     f"range {np.nanmin(x):,.0f} … {np.nanmax(x):,.0f} µV, "
+                     f"{off:.1f} s clipped off-screen",
+                     fontsize=9, color="#0b0b0b", loc="left")
+        ax.set_ylabel("µV", fontsize=8, color=INK)
+        if i == 1:
+            ax.set_xlabel("Time (s)", fontsize=8, color=INK)
+        else:
+            ax.tick_params(labelbottom=False)
+        ax.grid(True, axis="y", alpha=0.18, lw=0.6, zorder=0)
+        ax.tick_params(labelsize=7, colors=INK)
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        for s in ("left", "bottom"):
+            ax.spines[s].set_color(INK)
+            ax.spines[s].set_linewidth(0.6)
 
     # ── Panel 3: zoom, where rhythms are resolvable ──────────────────────────
     ax3 = fig.add_subplot(gs[2])
@@ -213,41 +235,73 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
     tz = np.arange(s0, min(s1, len(proc["AF3"]))) / fs
     for ch in ("AF3", "AF4"):
         seg = proc[ch][s0:s1][:len(tz)]
-        ax3.plot(tz, seg, lw=0.9, color=CH_COLORS[ch], zorder=4,
-                 label=f"{ch}_processed")
+        ax3.plot(tz, seg, lw=1.0, color=CH_COLORS[ch], zorder=4,
+                 label=f"{ch}_processed", solid_capstyle="round")
+        # Direct label at the trace end, so identity is not legend-only.
+        ax3.annotate(ch, xy=(tz[-1], seg[-1]), xytext=(4, 0),
+                     textcoords="offset points", va="center", fontsize=8,
+                     fontweight="bold", color=CH_COLORS[ch], annotation_clip=False)
     label = next((w["label"] for w in windows if w["t_start"] <= zoom_at < w["t_end"]), "?")
     ax3.set_xlim(tz[0], tz[-1])
-    ax3.set_title(f"AF3_processed / AF4_processed — zoom, {zoom_len:g} s from "
-                  f"t={zoom_at:.0f} s, inside “{label}”", fontsize=9)
-    ax3.set_xlabel("Time (s)", fontsize=8)
-    ax3.set_ylabel("µV", fontsize=8)
-    ax3.legend(loc="upper right", fontsize=7, ncol=2)
-    ax3.grid(True, alpha=0.25, zorder=0)
-    ax3.tick_params(labelsize=7)
+    ax3.set_title(f"Zoom — {zoom_len:g} s from t={zoom_at:.0f} s, inside “{label}”",
+                  fontsize=9, color="#0b0b0b", loc="left")
+    ax3.set_xlabel("Time (s)", fontsize=8, color=INK)
+    ax3.set_ylabel("µV", fontsize=8, color=INK)
+    ax3.legend(loc="upper right", fontsize=7, ncol=2, frameon=False)
+    ax3.grid(True, axis="y", alpha=0.18, lw=0.6, zorder=0)
+    ax3.tick_params(labelsize=7, colors=INK)
+    for s in ("top", "right"):
+        ax3.spines[s].set_visible(False)
+    for s in ("left", "bottom"):
+        ax3.spines[s].set_color(INK)
+        ax3.spines[s].set_linewidth(0.6)
 
     # ── Panel 4: band power per block ────────────────────────────────────────
+    # RELATIVE power, not absolute on a log axis. Delta outweighs beta by ~100x
+    # here, so a log axis is the only way absolute values fit — and a log axis
+    # makes a 100x gap look like a small step, which is the opposite of the truth.
+    # Shares of the 1-35 Hz total sum to 100% per block, need no log axis, and are
+    # the quantity that actually answers "what changed between blocks".
     ax4 = fig.add_subplot(gs[3])
     labels = [w["label"] for w in blocks]
     xs = np.arange(len(blocks))
-    width = 0.8 / len(BANDS)
+    shares = []
+    for w in blocks:
+        a, b = int(w["t_start"] * fs), int(w["t_end"] * fs)
+        segs = [proc["AF3"][a:b], proc["AF4"][a:b]]
+        v = np.array([band_powers_pooled(segs, fs, lo, hi) for _, lo, hi, _ in BANDS])
+        shares.append(v / v.sum() * 100 if np.isfinite(v).all() and v.sum() else v * np.nan)
+    shares = np.array(shares)
+
+    bottom = np.zeros(len(blocks))
     for bi, (bname, blo, bhi, bcolor) in enumerate(BANDS):
-        vals = []
-        for w in blocks:
-            a, b = int(w["t_start"] * fs), int(w["t_end"] * fs)
-            vals.append(band_powers_pooled(
-                [proc["AF3"][a:b], proc["AF4"][a:b]], fs, blo, bhi))
-        ax4.bar(xs + bi * width - 0.4 + width / 2, vals, width,
-                color=bcolor, label=f"{bname} ({blo}–{bhi} Hz)", zorder=3)
-    ax4.set_yscale("log")
+        vals = shares[:, bi]
+        ax4.bar(xs, vals, 0.66, bottom=bottom, color=bcolor,
+                label=f"{bname} {blo}–{bhi} Hz", zorder=3,
+                edgecolor="white", linewidth=1.4)      # 2px surface gap between segments
+        for xi, (v, bo) in enumerate(zip(vals, bottom)):
+            if np.isfinite(v) and v >= 8:              # selective labels, not every segment
+                ax4.text(xi, bo + v / 2, f"{v:.0f}%", ha="center", va="center",
+                         fontsize=7.5, fontweight="bold",
+                         color="white" if bi >= 2 else "#0b0b0b", zorder=5)
+        bottom += np.nan_to_num(vals)
+
+    ax4.set_ylim(0, 100)
     ax4.set_xticks(xs)
-    ax4.set_xticklabels(labels, fontsize=8)
-    ax4.set_ylabel("band power (µV²), log", fontsize=8)
-    ax4.set_title("AF3_processed + AF4_processed — band power per block, channels pooled  "
-                  "(baseline is one bar but six sub-phases, so read it with care)",
-                  fontsize=9)
-    ax4.legend(loc="upper right", fontsize=7, ncol=4)
-    ax4.grid(True, alpha=0.25, axis="y", zorder=0)
-    ax4.tick_params(labelsize=7)
+    ax4.set_xticklabels(labels, fontsize=8, color=INK)
+    ax4.set_ylabel("share of 1–35 Hz power", fontsize=8, color=INK)
+    ax4.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax4.set_title("Relative band power per block, channels averaged  "
+                  "— delta this dominant is unremoved ocular artifact, not slow-wave activity",
+                  fontsize=9, color="#0b0b0b", loc="left")
+    ax4.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=4,
+               fontsize=7.5, frameon=False)
+    ax4.grid(True, axis="y", alpha=0.18, lw=0.6, zorder=0)
+    ax4.tick_params(labelsize=7, colors=INK, length=0)
+    for s in ("top", "right", "left"):
+        ax4.spines[s].set_visible(False)
+    ax4.spines["bottom"].set_color(INK)
+    ax4.spines["bottom"].set_linewidth(0.6)
 
     handles = [mpatches.Patch(facecolor=c, alpha=0.5, label=l)
                for c, l in timeline_legend(windows)]
