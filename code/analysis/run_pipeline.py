@@ -55,7 +55,7 @@ from metadata import (
 )
 from utils import (
     get_timeline, filter_outliers, zscore, paired_test, raw_pairs, sig_pairs, fi_pairs,
-    rmssd_windows, fmt_paired, shade_timeline, WIN_COLORS,
+    rmssd_windows, fmt_paired, shade_timeline, timeline_legend,
 )
 
 import argparse
@@ -136,17 +136,27 @@ def plot_combined_summary(
     fi_step_sec=1,
     save_path=None,
     show=False,
+    windows=None,
+    title=None,
 ):
-    """Three-panel figure with task-timeline shading: fNIRS HbO/HbR | PPG | EEG FI."""
+    """Three-panel figure with task-timeline shading: fNIRS HbO/HbR | PPG | EEG FI.
+
+    `windows` overrides the timeline. Left as None it is recovered from the
+    filename's F0-F1-… order, which is right for the 12-block corpus; a
+    randomized PsychoPy session must pass the windows built by
+    session_timeline.build_session_windows() instead, since its order lives in
+    metadata.json rather than the filename.
+    """
     stem = os.path.splitext(os.path.basename(csv_path))[0]
 
-    try:
-        windows = get_timeline(csv_path)
-    except Exception:
-        windows = []
+    if windows is None:
+        try:
+            windows = get_timeline(csv_path)
+        except Exception:
+            windows = []
 
     fig = plt.figure(figsize=(20, 16))
-    fig.suptitle(stem, fontsize=11, fontweight="bold")
+    fig.suptitle(title or stem, fontsize=11, fontweight="bold")
     gs = gridspec.GridSpec(4, 1, height_ratios=[3, 3, 3, 1.6], hspace=0.80)
 
     stats_rows = []   # filled as we process each modality
@@ -335,13 +345,12 @@ def plot_combined_summary(
     # ── Legend for window colours ─────────────────────────────────────────────
     import matplotlib.patches as mpatches
     patch_handles = [
-        mpatches.Patch(facecolor=WIN_COLORS["baseline"],  alpha=0.5, label="Baseline (F0, 120s)"),
-        mpatches.Patch(facecolor=WIN_COLORS["task_odd"],  alpha=0.5, label="Task (120s)"),
-        mpatches.Patch(facecolor=WIN_COLORS["rest"],      alpha=0.5, label="Rest (50s)"),
-        mpatches.Patch(facecolor=WIN_COLORS["prefocus"],  alpha=0.5, label="Pre-focus (10s)"),
+        mpatches.Patch(facecolor=color, alpha=0.5, label=label)
+        for color, label in timeline_legend(windows)
     ]
-    fig.legend(handles=patch_handles, loc="lower center", ncol=4,
-               fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.005))
+    if patch_handles:
+        fig.legend(handles=patch_handles, loc="lower center", ncol=len(patch_handles),
+                   fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.005))
 
     plt.subplots_adjust(bottom=0.06)
 
@@ -383,11 +392,19 @@ def run_pipeline(
     # Combined summary
     summary_save_dir=GRAPH_SUMMARY_DIR,
     show_summary=False,
+    # Timeline override
+    windows_for=None,
+    title_for=None,
 ):
     """Run all four pipeline steps on one CSV file or a folder of CSV files.
 
     Returns a list of per-file result dicts with keys:
       file, eeg, fnirs, ppg, fi
+
+    `windows_for` optionally maps a CSV path to a prebuilt timeline, for
+    recordings whose block order is not in the filename (see session_timeline).
+    `title_for` likewise maps a CSV path to a figure title. Both default to the
+    filename-derived behaviour used by the 12-block corpus.
     """
     # Collect input files
     if os.path.isdir(csv_input):
@@ -414,6 +431,8 @@ def run_pipeline(
         print(f"{'#' * 60}")
 
         record = {"file": csv_path}
+        windows = (windows_for or {}).get(csv_path)
+        fig_title = (title_for or {}).get(csv_path)
 
         # ── Step 1: EEG ──────────────────────────────────────────────────────
         _section("STEP 1 — EEG quality check + EDF export")
@@ -482,6 +501,8 @@ def run_pipeline(
                     win_sec=fi_win_sec,
                     step_sec=fi_step_sec,
                     save_path=fi_save,
+                    windows=windows,
+                    title=fig_title,
                 )
                 record["fi"] = fi_save if fi_save else "shown"
             except Exception as exc:
@@ -511,6 +532,8 @@ def run_pipeline(
                 fi_step_sec=fi_step_sec,
                 save_path=summary_path,
                 show=show_summary,
+                windows=windows,
+                title=fig_title,
             )
             record["summary"] = summary_path or ("shown" if show_summary else "skipped")
         except Exception as exc:

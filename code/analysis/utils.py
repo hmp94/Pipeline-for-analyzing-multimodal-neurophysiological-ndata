@@ -275,6 +275,42 @@ def fmt_paired(label, r):
 
 # ── Shared plot helper ────────────────────────────────────────────────────────
 
+def timeline_legend(windows):
+    """(colour, label) pairs describing the block kinds present in `windows`.
+
+    Durations are read back off the windows rather than from the module
+    constants, so the key stays truthful whichever protocol produced them — the
+    12-block corpus or a PsychoPy session with its own timing. Each kind is
+    labelled with its most common duration, so one short trailing block does not
+    skew the figure key.
+    """
+    def _kind(w):
+        if w["is_baseline"]:
+            return "baseline"
+        if w["is_interval"]:
+            return "rest"
+        if w.get("is_prefocus"):
+            return "prefocus"
+        return "task_odd"
+
+    durations = {}
+    for w in windows:
+        durations.setdefault(_kind(w), []).append(round(w["t_end"] - w["t_start"], 1))
+
+    names = {"baseline": "Baseline", "task_odd": "Task",
+             "rest": "Rest", "prefocus": "Pre-focus"}
+
+    out = []
+    for kind in ("baseline", "task_odd", "rest", "prefocus"):
+        ds = durations.get(kind)
+        if not ds:
+            continue
+        common = max(set(ds), key=ds.count)
+        out.append((WIN_COLORS[kind], f"{names[kind]} ({common:g}s)"))
+    return out
+
+
+
 def shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max=None):
     """Colour spans + bracket arrows + labels for each task window.
 
@@ -297,7 +333,10 @@ def shade_timeline(ax, windows, x_scale=1.0, arrow_y=-0.10, label_y=-0.20, x_max
         elif w.get("is_prefocus"):
             color = WIN_COLORS["prefocus"]
         else:
-            num = int(re.search(r"\d+", w["label"]).group())
+            # 12-block labels are F1…F12; the PsychoPy battery names its blocks
+            # ("Addition", "Stroop A"), so fall back when there is no number.
+            num_match = re.search(r"\d+", w["label"])
+            num = int(num_match.group()) if num_match else 1
             color = WIN_COLORS["task_odd"] if num % 2 == 1 else WIN_COLORS["task_even"]
         ax.axvspan(x0, x1_draw, alpha=0.35, color=color, lw=0)
 

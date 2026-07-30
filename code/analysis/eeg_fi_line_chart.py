@@ -7,13 +7,12 @@ import matplotlib.patches as mpatches
 from scipy.signal import welch
 import pyedflib
 from metadata import (
-    TASK_DUR, REST_DUR, PREFOCUS_DUR,
     EEG_FS, EEG_CHANNELS, EEG_ALPHA, EEG_BETA, EEG_FI_WIN, EEG_FI_STEP,
     DATA_EDF_DIR, GRAPH_EEG_DIR,
 )
 from utils import (
     get_timeline, filter_outliers, paired_test, fi_pairs, fmt_paired,
-    shade_timeline, WIN_COLORS,
+    shade_timeline, timeline_legend,
 )
 
 # ── Band power ────────────────────────────────────────────────────────────────
@@ -69,12 +68,22 @@ def plot_fi_timeline(edf_path,
                      win_sec=5,
                      step_sec=1,
                      status='GOOD',
-                     save_path=None):
+                     save_path=None,
+                     windows=None,
+                     title=None):
+    """FI (β/α) timeline for one EDF, with block shading and a task-vs-rest test.
+
+    `windows` overrides the timeline; left as None it is recovered from the
+    filename's F0-F1-… order, which suits the 12-block corpus. A randomized
+    PsychoPy session must pass windows from session_timeline instead, since its
+    block order lives in metadata.json rather than in the filename.
+    """
     data, ch_labels, fs = load_eeg_from_edf(edf_path, channels)
     print(f"Loaded {ch_labels} @ {fs} Hz, {data.shape[1]} samples "
           f"({data.shape[1]/fs:.1f} s)")
 
-    windows       = get_timeline(edf_path)
+    if windows is None:
+        windows = get_timeline(edf_path)
     t_centers, fi = compute_fi_timeline(data, fs, win_sec=win_sec, step_sec=step_sec)
 
     if len(t_centers) == 0:
@@ -122,13 +131,11 @@ def plot_fi_timeline(edf_path,
     ax.set_ylabel('FI = β/α', fontsize=10)
 
     basename = os.path.splitext(os.path.basename(edf_path))[0]
-    ax.set_title(f'{basename} [{status}]  —  FI = β/α over time', fontsize=10)
+    ax.set_title(f'{title or basename} [{status}]  —  FI = β/α over time', fontsize=10)
 
     legend_handles = [
-        mpatches.Patch(facecolor=WIN_COLORS['baseline'],  label=f'Baseline (F0, {TASK_DUR}s)'),
-        mpatches.Patch(facecolor=WIN_COLORS['task_odd'],  label=f'Task ({TASK_DUR}s)'),
-        mpatches.Patch(facecolor=WIN_COLORS['rest'],      label=f'Rest ({REST_DUR}s)'),
-        mpatches.Patch(facecolor=WIN_COLORS['prefocus'],  label=f'Pre-focus ({PREFOCUS_DUR}s)'),
+        mpatches.Patch(facecolor=color, label=label)
+        for color, label in timeline_legend(windows)
     ]
     line_handles, line_labels_list = ax.get_legend_handles_labels()
     keep = [h for h, l in zip(line_handles, line_labels_list)

@@ -103,6 +103,27 @@ python code/analysis/run_pipeline.py data/raw/csv/ data/raw/edf \
 python code/analysis/eeg_fi_line_chart.py
 ```
 
+### Analyse a PsychoPy battery session (`code/results/eeg_bl/`)
+
+```bash
+python code/analysis/run_session_analysis.py --dry-run   # show pairings + timelines only
+python code/analysis/run_session_analysis.py             # write figures to graph/eeg_bl/
+```
+
+The two commands above assume the 12-block protocol, whose block order is encoded in the
+recording's filename (`…_F0-F1-…-F12.csv`). Recordings from the 7-block PsychoPy battery in
+`code/experiment/` need `run_session_analysis.py` instead, because their block order is
+**randomized per session and stored in `metadata.json`**, not in the filename. The driver pairs each
+recording in `code/results/eeg_bl/` with a session folder in `code/results/behaviors/`, builds the
+timeline from that session's `task_order` (see `code/analysis/session_timeline.py`), and hands it to
+the same `run_pipeline` code — so the figures are identical in form to the 12-block ones, only with
+real block names on the ruler.
+
+Recordings are named by informal nickname while sessions are keyed by student ID, so the pairing
+falls back to wall-clock containment. Anything unmatched or ambiguous is reported and analysed with
+generic block labels rather than guessed at; use `--map <csv>=<session>` to state a pairing
+explicitly. Intermediate EDFs go to `data/derived/` (gitignored — regenerate as needed).
+
 > **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
 > (as shown above). The standalone `eeg_fi_line_chart.py` ignores that flag and always
 > writes to the `GRAPH_*` paths defined in `code/analysis/metadata.py`, which are
