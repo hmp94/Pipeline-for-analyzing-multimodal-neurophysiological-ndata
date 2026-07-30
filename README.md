@@ -124,24 +124,37 @@ falls back to wall-clock containment. Anything unmatched or ambiguous is reporte
 generic block labels rather than guessed at; use `--map <csv>=<session>` to state a pairing
 explicitly. Intermediate EDFs go to `data/derived/` (gitignored — regenerate as needed).
 
-### Plot the raw EEG traces
+> ### µV conversion overflow — fixed, and it invalidates older figures
+>
+> `convert_to_uV()` used to cast to `np.int16` before the DC offset was removed. These electrodes
+> sit near −160…−200 mV, so **every** sample fell outside int16's ±32767 and the cast wrapped
+> modulo 65536, injecting ±65536 µV step discontinuities that the downstream filters spread rather
+> than removed. Whether a recording survived was luck — whether its range happened to sit inside one
+> wrap band or straddle an edge:
+>
+> * `ban_29_14_40` — 0 induced steps, so the cast was a harmless constant offset;
+> * `minhanh_29_16_29` — 41,329 steps on AF3, its `AF3_processed` uncorrelated with the true signal
+>   (r = −0.12) and inflated 79× in amplitude;
+> * **14 of the 15 files in `data/raw/csv/`** are affected too.
+>
+> Both copies of the conversion (`csv_to_edf_denoised.py`, `WPT_denoising_threshold.py`) now stay in
+> float; `write_edf` already digitises via each signal's own `physical_min`/`physical_max`, so no
+> manual narrowing was ever wanted. After the fix both battery recordings' processed channels match
+> an independent correct computation at r = +1.0000.
+>
+> **Consequence:** every PNG under `graph/summary/` and `graph/eeg/` was produced before this fix and
+> is affected for those 14 files. Re-run the pipeline to regenerate them.
+
+### Plot the raw EEG traces (diagnostic, not part of the analysis)
 
 ```bash
 python code/analysis/plot_raw_eeg.py            # -> graph/eeg_bl/<stem>_raw_eeg.png
 ```
 
-The summary and FI figures show the Focus Index, a derived measure. This plots the EEG voltage
-itself over the same block timeline — two full-session channel views, a 10 s zoom, and a panel
-showing what the EDF export actually stores. Use it to judge a recording before trusting anything
-derived from it.
-
-> **Known bug it exposes.** `csv_to_edf_denoised.convert_to_uV()` casts to `np.int16` *before*
-> removing the DC offset. These electrodes sit near −160…−200 mV, so every sample is outside
-> int16's ±32767 and the cast wraps modulo 65536. Whether that matters depends on where a
-> recording's range falls: `ban_29_14_40` sits inside one wrap band (0 induced steps, harmless
-> constant offset), while `minhanh_29_16_29` straddles a band edge and takes 41,329 steps of
-> ±65536 µV on AF3 — so anything computed from *its* EDF, including its FI panel, is meaningless.
-> The fix is a one-line reorder: subtract the DC reference and stay in float before any cast.
+Optional and not run by `run_session_analysis.py`. Plots the EEG voltage itself — two full-session
+channel views, a short zoom, and a panel comparing against what the EDF export stores. This is the
+tool that surfaced the overflow above, so it is worth keeping for judging a new recording, but the
+analysis deliverables are the processed `_summary.png` / `_FI.png` figures.
 
 > **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
 > (as shown above). The standalone `eeg_fi_line_chart.py` ignores that flag and always

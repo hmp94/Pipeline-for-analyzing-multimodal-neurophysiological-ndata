@@ -137,7 +137,15 @@ def estimate_sigma(detail_coeffs):
 # BASIC HELPERS
 # =========================================================
 def convert_to_uV(raw_signal):
-    return (1_000_000 * (raw_signal - 8388608) * 1.6 / 8388608 / 2).astype(np.int16)
+    """ADC counts → µV at 0.095367 µV/count, in float.
+
+    Kept in float for the same reason as the copy in csv_to_edf_denoised.py: the
+    electrode DC offset puts every sample outside int16's ±32767, so casting here
+    wraps modulo 65536 and injects ±65536 µV steps. Only used by
+    processing_all_files() below, which nothing currently calls.
+    """
+    return np.asarray(1_000_000 * (raw_signal - 8388608) * 1.6 / 8388608 / 2,
+                      dtype=np.float64)
 
 
 def robust_band_amplitude(coeffs, metric="p95"):

@@ -275,7 +275,20 @@ def convert_csv_to_edf(csv_folder_path, edf_folder_path, sampling_frequency, dev
 
         # Convert to microvolts (µV)
         def convert_to_uV(raw_signal):
-            return (1_000_000 * (raw_signal - 8388608) * 1.6 / 8388608 / 2).astype(np.int16)
+            """ADC counts → µV at 0.095367 µV/count, in float.
+
+            Must NOT be cast to an integer type here. These electrodes sit near
+            -160..-200 mV, so every sample lands far outside int16's ±32767 and a
+            cast wraps modulo 65536, injecting ±65536 µV step discontinuities into
+            the signal. Whether that ruined a recording depended on where its range
+            happened to fall relative to a wrap boundary: 14 of the 15 files in
+            data/raw/csv were affected, as was minhanh_29_16_29 (41329 steps on
+            AF3), while ban_29_14_40 sat inside one band and escaped. The DC offset
+            is removed just below, and write_edf digitises via each signal's own
+            physical_min/physical_max, so no manual narrowing is wanted.
+            """
+            return np.asarray(1_000_000 * (raw_signal - 8388608) * 1.6 / 8388608 / 2,
+                              dtype=np.float64)
         if device == 'BL':
             AF3_uV = convert_to_uV(AF3) 
             AF4_uV = convert_to_uV(AF4)
