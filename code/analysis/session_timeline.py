@@ -48,12 +48,18 @@ from datetime import datetime, timedelta
 # run_all_experiments.py calls wait_for_start(), which blocks on SPACE with no
 # time limit, BEFORE the 10 s BASELINE_INTRO screen. The true gap is therefore
 # 10 s plus however long the operator left the welcome screen up after starting
-# the headband. Measured from the baseline's own blink cues and the eyes-closed
-# alpha edge: +11.7 s for ban_29_14_40 and +9.9 s for minhanh_29_16_29 — so the
-# term really does vary between recordings. At ±2 s it shifts a 180 s block label
-# by ~1%, which is harmless, but it is not safe to assume for a recording started
-# well before or after the SPACE press. Pass t0 (run_session_analysis --offset)
-# when a recording's own markers say otherwise.
+# the headband. For ban_29_14_40 the baseline's five logged blink cues put the true
+# gap at 11.95-12.15 s, and that closes against the wall clock: saved_at 15:08:25
+# minus the 1650.3 s timeline puts the intro at 14:40:55, so recording t=0 lands at
+# 14:40:53 — matching the 14:40 in the filename. So 10.0 s is ~2 s short here,
+# about 1% of a 180 s block, and harmless. It is NOT measurable for a recording
+# with no paired task.csv (minhanh_29_16_29 has no cue times to match against).
+# Pass t0 (run_session_analysis --offset) when a recording's own markers disagree.
+#
+# Do NOT confuse this with the `offset_s` that find_session_for_recording reports.
+# That is the gap from session-folder creation to recording start — 645 s for ban,
+# spent on the demographics dialog and the untimed SPACE wait. Feeding it in as t0
+# would misalign the timeline by nearly 11 minutes.
 INTRO_S       = 10.0    # SESSION["welcome_s"]    — BASELINE_INTRO screen
 BASELINE_S    = 180.0   # sum of SESSION["baseline_phases"]
 REST_S        = 60.0    # SESSION["rest_s"]
@@ -108,7 +114,9 @@ def load_session(session_dir):
 def measure_block_durations(session_dir):
     """Actual block durations in seconds, per task_type, from task.csv.
 
-    Only the blocks that log session-relative timestamps can be measured:
+    Every block's time_ms restarts at 0, so task.csv holds BLOCK-relative times and
+    no absolute clock — durations are recoverable from it, block onsets are not.
+    Only the blocks that log a start and an end marker can be measured at all:
     Baseline (baseline_start → baseline_end), Fairy Tale and Passive Video
     (task_start → task_end). Addition / Multiplication / Stroop A / CPT-X record
     per-trial reaction times only, so their length is not recoverable — they are

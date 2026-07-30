@@ -13,9 +13,25 @@ what `compute_fi_timeline()` was given. `_processed` means DC blocking, notch at
 
 Panels
 ------
-  1-2  each channel across the session, min/max envelope so no spike is hidden
+  1-2  each channel across the session, drawn as a per-pixel min/max band so no
+       sample is skipped by decimation. The Y AXIS IS STILL CLIPPED, to the 99.7th
+       percentile — these recordings contain transients running several times that,
+       and scaling to them would flatten the EEG into a line. Each title states how
+       much is drawn off-screen, and gives both the plain RMS and a robust SD
+       (1.4826·MAD): for ban's AF4 those are 151 µV and 25 µV, because the top 0.1%
+       of samples hold ~65% of the variance. Quote the robust figure when you mean
+       "how big is the EEG".
   3    a short zoom, where individual rhythms are actually resolvable
-  4    band power per block — what changes task to task, which a trace cannot show
+  4    band power per block — what changes task to task, which a trace cannot show.
+       Each channel's PSD is computed separately and then averaged; concatenating
+       the two channels before Welch would take the PSD across the splice and let
+       the noisier channel dominate.
+
+The baseline's eyes-closed/eyes-open alpha ratio is computed per channel and shown
+in the figure, because it is the one built-in physiological validity check these
+recordings carry. A ratio at or below 1 means alpha did not rise on eye closure and
+nothing derived from the recording — least of all a β/α focus index — should be
+trusted.
 
 A note on `_processed` vs `_denoised`
 ------------------------------------
@@ -112,6 +128,26 @@ def band_powers(x, fs, lo, hi):
     return float(np.trapezoid(P[m], fr[m])) if m.any() else np.nan
 
 
+def band_powers_pooled(segs, fs, lo, hi):
+    """Mean band power across channels — each PSD computed on its own segment.
+
+    Never concatenate the channels first: that takes the PSD across the splice and
+    weights whichever channel carries more power, which for a transient-heavy
+    channel is not the one you want deciding the answer.
+    """
+    vals = [band_powers(s, fs, lo, hi) for s in segs]
+    vals = [v for v in vals if np.isfinite(v)]
+    return float(np.mean(vals)) if vals else np.nan
+
+
+def robust_sd(x):
+    """1.4826·MAD — an amplitude that rare transients cannot inflate."""
+    finite = x[np.isfinite(x)]
+    if finite.size == 0:
+        return float("nan")
+    return float(1.4826 * np.median(np.abs(finite - np.median(finite))))
+
+
 def task_blocks(windows):
     return [w for w in windows
             if not w["is_interval"] and not w.get("is_prefocus")]
@@ -131,9 +167,22 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
         zoom_at = (first["t_start"] + first["t_end"]) / 2 if first else dur / 2
     zoom_at = max(0.0, min(float(zoom_at), max(0.0, dur - zoom_len)))
 
+    # The baseline's own eyes-closed phase is the only physiological validity check
+    # these recordings carry, so it belongs on the figure, not just in stdout.
+    alpha = _alpha_reactivity(proc, fs, windows)
+    ok = all(np.isfinite(v) and v > 1.15 for v in alpha.values()) if alpha else False
+    banner = ("eyes-closed alpha reactivity  "
+              + "  ".join(f"{ch} {v:.2f}×" for ch, v in alpha.items())
+              + ("   → PASS, alpha rises on eye closure"
+                 if ok else
+                 "   → FAIL: alpha does not rise on eye closure, so β/α here is not "
+                 "interpretable as focus"))
+
     fig = plt.figure(figsize=(20, 16))
     fig.suptitle(f"{title}   —   PROCESSED EEG  ({', '.join(EEG_CHANNELS)})",
                  fontsize=11, fontweight="bold")
+    fig.text(0.5, 0.955, banner, ha="center", fontsize=9.5,
+             fontweight="bold", color="#14532d" if ok else "#7f1d1d")
     gs = gridspec.GridSpec(4, 1, height_ratios=[3, 3, 2.6, 2.8], hspace=0.85)
 
     # ── Panels 1-2: whole session, one per channel ───────────────────────────
@@ -144,10 +193,14 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
         shade_timeline(ax, windows, x_scale=1.0, x_max=dur)
         ax.fill_between(t, lo, hi, color=CH_COLORS[ch], lw=0, zorder=3)
         ax.set_xlim(0, dur)
-        ax.set_ylim(*robust_ylim(x))
+        ylo, yhi = robust_ylim(x)
+        ax.set_ylim(ylo, yhi)
+        off = float(np.mean(np.abs(x) > yhi)) * len(x) / fs      # seconds off-screen
         ax.set_title(f"{ch}_processed — DC-blocked, notched 60/50/32 Hz, "
-                     f"bandpass 1–35 Hz   RMS {np.std(x):.1f} µV   "
-                     f"range {np.nanmin(x):,.0f} … {np.nanmax(x):,.0f} µV",
+                     f"bandpass 1–35 Hz   robust SD {robust_sd(x):.1f} µV "
+                     f"(plain RMS {np.std(x):.1f} µV)   "
+                     f"true range {np.nanmin(x):,.0f} … {np.nanmax(x):,.0f} µV, "
+                     f"y-axis ±{yhi:,.0f} so {off:.1f} s is drawn off-screen",
                      fontsize=9)
         ax.set_xlabel("Time (s)", fontsize=8)
         ax.set_ylabel("µV", fontsize=8)
@@ -181,8 +234,8 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
         vals = []
         for w in blocks:
             a, b = int(w["t_start"] * fs), int(w["t_end"] * fs)
-            seg = np.concatenate([proc["AF3"][a:b], proc["AF4"][a:b]])
-            vals.append(band_powers(seg, fs, blo, bhi))
+            vals.append(band_powers_pooled(
+                [proc["AF3"][a:b], proc["AF4"][a:b]], fs, blo, bhi))
         ax4.bar(xs + bi * width - 0.4 + width / 2, vals, width,
                 color=bcolor, label=f"{bname} ({blo}–{bhi} Hz)", zorder=3)
     ax4.set_yscale("log")
@@ -210,8 +263,9 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
 
     return dict(stem=stem, quality=quality, fs=fs, dur=dur,
                 rms={ch: float(np.std(proc[ch])) for ch in proc},
+                robust={ch: robust_sd(proc[ch]) for ch in proc},
                 has_denoised=bool(denoised),
-                alpha_ratio=_alpha_reactivity(proc, fs, windows))
+                alpha_ratio=alpha, alpha_pass=ok)
 
 
 def _alpha_reactivity(proc, fs, windows):
@@ -223,15 +277,18 @@ def _alpha_reactivity(proc, fs, windows):
     """
     base = next((w for w in windows if w["is_baseline"]), None)
     if base is None:
-        return float("nan")
-    def rel(t0, t1):
+        return {}
+    def rel(ch, t0, t1):
         a, b = int((base["t_start"] + t0) * fs), int((base["t_start"] + t1) * fs)
-        seg = np.concatenate([proc["AF3"][a:b], proc["AF4"][a:b]])
+        seg = proc[ch][a:b]
         tot = band_powers(seg, fs, 2, 40)
         al = band_powers(seg, fs, EEG_ALPHA[0], EEG_ALPHA[1])
         return al / tot if tot and np.isfinite(tot) else np.nan
-    eo, ec = rel(10, 70), rel(120, 180)
-    return float(ec / eo) if eo and np.isfinite(eo) else float("nan")
+    out = {}
+    for ch in ("AF3", "AF4"):
+        eo, ec = rel(ch, 10, 70), rel(ch, 120, 180)
+        out[ch] = float(ec / eo) if eo and np.isfinite(eo) else float("nan")
+    return out
 
 
 def main():
@@ -279,10 +336,12 @@ def main():
     if rows:
         print(f"\n{'=' * 78}\nProcessed-EEG summary\n{'=' * 78}")
         for r in rows:
+            a = "  ".join(f"{ch} {v:.2f}x" for ch, v in r["alpha_ratio"].items())
             print(f"  {r['stem'][:30]:30s} {r['quality']:14s} "
-                  f"AF3 {r['rms']['AF3']:7.1f} µV  AF4 {r['rms']['AF4']:7.1f} µV  "
-                  f"eyes-closed/open alpha {r['alpha_ratio']:.2f}x  "
-                  f"{'(WPT channel present but unused)' if r['has_denoised'] else ''}")
+                  f"robust SD AF3 {r['robust']['AF3']:6.1f} AF4 {r['robust']['AF4']:6.1f} µV "
+                  f"(RMS {r['rms']['AF3']:.0f}/{r['rms']['AF4']:.0f})  "
+                  f"alpha {a}  {'PASS' if r['alpha_pass'] else 'FAIL'}"
+                  f"{'  [WPT channel written but never read]' if r['has_denoised'] else ''}")
     return 0
 
 
