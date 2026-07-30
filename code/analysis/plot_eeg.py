@@ -69,6 +69,7 @@ CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 if CODE_DIR not in sys.path:
     sys.path.insert(0, CODE_DIR)
 
+import blink as bl
 import session_timeline as st
 from metadata import EEG_CHANNELS, EEG_ALPHA, EEG_BETA
 from utils import shade_timeline, timeline_legend
@@ -96,6 +97,7 @@ CH_COLORS = {"AF3": "#2a78d6", "AF4": "#eb6834"}
 
 SHADE_ALPHA = 0.16        # recessive: the blocks are context, the trace is data
 INK = "#52514e"           # axis/grid ink, kept off pure black
+ARTIFACT = "#e34948"      # status:critical — reserved, never used as a series hue
 
 
 def find_edf(stem):
@@ -190,6 +192,13 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
                  "   → FAIL: alpha does not rise on eye closure, so β/α here is not "
                  "interpretable as focus"))
 
+    # Ocular artifact. Detected outside the baseline only — the baseline's blinks and
+    # eye movements are the protocol, not noise. Spans are excluded from the band
+    # powers below, never interpolated over.
+    spans, binfo = bl.detect_blinks([proc["AF3"], proc["AF4"]], fs,
+                                    windows=windows, skip_baseline=True)
+    bmask = bl.spans_to_mask(spans, len(proc["AF3"]), fs)
+
     fig = plt.figure(figsize=(20, 16))
     fig.suptitle(f"{title}   —   PROCESSED EEG  ({', '.join(EEG_CHANNELS)})",
                  fontsize=11, fontweight="bold")
@@ -207,6 +216,10 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
         shade_timeline(ax, windows, x_scale=1.0, x_max=dur,
                        alpha=SHADE_ALPHA, annotate=(i == 1))
         ax.fill_between(t, lo, hi, color=CH_COLORS[ch], lw=0, zorder=3)
+        # Artifact spans as a rug along the top edge, not a wash over the trace —
+        # 164 spans shaded full-height would just fog the panel.
+        for a, b in spans:
+            ax.axvspan(a, b, ymin=0.94, ymax=1.0, color=ARTIFACT, lw=0, zorder=5)
         ax.set_xlim(0, dur)
         ylo, yhi = robust_ylim(x)
         ax.set_ylim(ylo, yhi)
@@ -268,8 +281,14 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
     shares = []
     for w in blocks:
         a, b = int(w["t_start"] * fs), int(w["t_end"] * fs)
-        segs = [proc["AF3"][a:b], proc["AF4"][a:b]]
-        v = np.array([band_powers_pooled(segs, fs, lo, hi) for _, lo, hi, _ in BANDS])
+        # Blink spans excluded. The baseline block carries no exclusions by design,
+        # so its bar still includes the deliberate ocular phases — that is why it
+        # stays delta-heavy and why it is not comparable with the task bars.
+        m = bmask[a:b]
+        v = np.array([
+            np.nanmean([bl.band_power_clean(proc[ch][a:b], fs, m, lo, hi)
+                        for ch in ("AF3", "AF4")])
+            for _, lo, hi, _ in BANDS])
         shares.append(v / v.sum() * 100 if np.isfinite(v).all() and v.sum() else v * np.nan)
     shares = np.array(shares)
 
@@ -291,8 +310,10 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
     ax4.set_xticklabels(labels, fontsize=8, color=INK)
     ax4.set_ylabel("share of 1–35 Hz power", fontsize=8, color=INK)
     ax4.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-    ax4.set_title("Relative band power per block, channels averaged  "
-                  "— delta this dominant is unremoved ocular artifact, not slow-wave activity",
+    ax4.set_title(f"Relative band power per block, channels averaged, "
+                  f"blink spans EXCLUDED ({binfo['excluded_frac'] * 100:.1f}% of time)"
+                  f"   —   baseline keeps its deliberate ocular phases, so it is not "
+                  f"comparable with the task bars",
                   fontsize=9, color="#0b0b0b", loc="left")
     ax4.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=4,
                fontsize=7.5, frameon=False)
@@ -305,9 +326,11 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
 
     handles = [mpatches.Patch(facecolor=c, alpha=0.5, label=l)
                for c, l in timeline_legend(windows)]
-    if handles:
-        fig.legend(handles=handles, loc="lower center", ncol=len(handles),
-                   fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.005))
+    handles.append(mpatches.Patch(facecolor=ARTIFACT,
+                                  label=f"blink/ocular span ({binfo['n_spans']}, "
+                                        f"top rug in panels 1–2)"))
+    fig.legend(handles=handles, loc="lower center", ncol=len(handles),
+               fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, 0.005))
     plt.subplots_adjust(bottom=0.06)
 
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
@@ -319,7 +342,7 @@ def plot_recording(stem, edf_path, quality, windows, title, save_path,
                 rms={ch: float(np.std(proc[ch])) for ch in proc},
                 robust={ch: robust_sd(proc[ch]) for ch in proc},
                 has_denoised=bool(denoised),
-                alpha_ratio=alpha, alpha_pass=ok)
+                alpha_ratio=alpha, alpha_pass=ok, blink=binfo)
 
 
 def _alpha_reactivity(proc, fs, windows):
@@ -396,6 +419,7 @@ def main():
                   f"(RMS {r['rms']['AF3']:.0f}/{r['rms']['AF4']:.0f})  "
                   f"alpha {a}  {'PASS' if r['alpha_pass'] else 'FAIL'}"
                   f"{'  [WPT channel written but never read]' if r['has_denoised'] else ''}")
+            print(f"      blinks: {bl.summarise(r['blink'])}")
     return 0
 
 

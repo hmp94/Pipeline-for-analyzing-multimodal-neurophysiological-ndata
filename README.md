@@ -145,6 +145,43 @@ explicitly. Intermediate EDFs go to `data/derived/` (gitignored — regenerate a
 > **Consequence:** every PNG under `graph/summary/` and `graph/eeg/` was produced before this fix and
 > is affected for those 14 files. Re-run the pipeline to regenerate them.
 
+### Browse the EEG in time windows
+
+```bash
+python code/analysis/plot_eeg_windows.py               # 20 s strips, 12 per page
+python code/analysis/plot_eeg_windows.py --win 10 --strips 15 --only ban
+```
+
+A 28-minute recording on one axis is ~340 samples per pixel, so a full-session plot
+shows only the envelope — no waveform survives it. This renders the recording as a strip
+chart the way EEG is actually read: short windows at fixed scale, stacked down the page,
+paginated to the end. Writes a multi-page PDF per recording plus a PNG of one page.
+
+### Blink / ocular artifact
+
+`code/analysis/blink.py` detects ocular spans and lets callers **exclude** them. It does
+not correct them: with two bipolar frontal derivations and no EOG channel there is no way
+to separate blink from brain (ICA needs more channels), so interpolating would invent data
+and quietly lower the variance. Band power is computed per surviving segment and
+PSD-averaged, so excising a span never introduces a splice step of its own.
+
+**The baseline is deliberately not screened.** `run_all_experiments` spends 50 s of its
+182 s baseline on guided blinks and eye movements — those artifacts are the protocol, they
+are what pins the recording's time alignment, and five are individually logged in
+`task.csv`. Screening there would flag the protocol as noise and inflate the amplitude
+threshold for the whole recording.
+
+Measured effect, which is the signature of genuine ocular contamination — low frequencies
+collapse while beta barely moves:
+
+| | spans | time excluded | delta | theta | alpha | beta |
+|---|---|---|---|---|---|---|
+| `ban_29_14_40` | 164 | 8.5% | ×0.63 | ×0.60 | ×0.61 | ×0.94 |
+| `minhanh_29_16_29` | 300 | 22.3% | **×0.14** | ×0.29 | ×0.76 | ×0.88 |
+
+Note this *raises* β/α, since blinks add more power to alpha than to beta — so the focus
+index in the pre-existing figures is biased low, not high.
+
 ### Plot the processed EEG traces
 
 ```bash
