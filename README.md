@@ -166,15 +166,32 @@ Detection lives in the ocular-artifact section of `utils.py` (`detect_blinks`,
 derivations and no EOG channel there is no way to separate blink from brain — ICA needs more
 channels — so interpolating would invent data and quietly lower the variance. Band power is
 computed per surviving segment and PSD-averaged, so excising a span never introduces a splice
-step of its own. Tune with `--blink-sd` (default 3.0 robust SDs; lower is more sensitive).
+step of its own. Tune with `--blink-sd` (default 3.5 robust SDs; lower is more sensitive).
+
+The threshold is calibrated against blink **rate**, the only external reference available:
+spontaneous blinking runs ~10–20/min at rest and *drops* during focused visual work, so a
+detector firing well above 20/min is discarding EEG rather than blinks. On `ban_29_14_40`, over
+the 24.5 min it actually screens:
+
+| `--blink-sd` | events/min | time excluded | mean span | |
+|---|---|---|---|---|
+| 5.0 | 6.6 | 8.5% | 0.86 s | under — misses task blinks |
+| 4.0 | 13.4 | 16.5% | 0.83 s | conservative, defensible |
+| **3.5** | **17.7** | **22.3%** | 0.85 s | **default — top of the normal band** |
+| 3.0 | 22.1 | 29.1% | 0.89 s | over — above resting rate |
+| 2.0 | 25.2 | 40.8% | 1.09 s | count saturates, spans just widen |
+
+Below 3.0 the event count saturates near 600 while the excluded fraction climbs to 41–47% and
+the mean span grows to 1.33 s — it stops finding new blinks and starts merging the ones it has,
+so the extra cost buys nothing.
 
 **The baseline is deliberately not screened.** `run_all_experiments` spends 50 s of its 182 s
 baseline on guided blinks and eye movements — those artifacts are the protocol, they are what
 pins the recording's time alignment, and five are individually logged in `task.csv`. Screening
 there would flag the protocol as noise and inflate the amplitude threshold everywhere else.
 
-At the default threshold: `ban_29_14_40` 545 spans / 29.1% of time excluded,
-`minhanh_29_16_29` 289 spans / 28.7%.
+At the default threshold: `ban_29_14_40` 437 spans / 22.3% of time excluded,
+`minhanh_29_16_29` 293 spans / 27.0%.
 
 > **What exclusion does and does not fix.** It removes discrete events, and on the strip charts
 > the marked spans now cover essentially every visible deflection. But it does **not** clean up

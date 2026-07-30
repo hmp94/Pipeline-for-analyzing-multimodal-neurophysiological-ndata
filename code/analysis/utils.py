@@ -706,14 +706,25 @@ BLINK_BAND = (1.0, 5.0)
 #: two lobes of one deflection and short enough not to merge separate events.
 ENVELOPE_MS = 200.0
 
-#: Threshold in robust SDs above the LOCAL envelope level (see BLINK_WINDOW_S).
-#: 3.0 was chosen for detection fidelity against the visible deflections in the
-#: strip charts, not to optimise a spectral outcome — lowering it from 6.0 to 1.5
-#: moves ban_29_14_40's excluded fraction from 4.7% to 46.8% and its delta share
-#: from 87.3% to 88.5%, i.e. essentially not at all. Its low-frequency excess is
-#: continuous drift, not a train of separable blinks, so no exclusion threshold
-#: fixes the spectrum. Tune with the --blink-sd flag.
-N_ROBUST_SD = 3.0
+#: Threshold in robust SDs of the envelope. Calibrated against blink RATE, which is
+#: the only external reference available: spontaneous blinking runs ~10-20/min at
+#: rest and DROPS during focused visual work (reading, arithmetic), so a detector
+#: firing well above 20/min is discarding EEG, not blinks. Measured on
+#: ban_29_14_40 over the 24.5 min it actually screens:
+#:
+#:   n_sd   events/min   excluded   mean span   median gap
+#:    5.0        6.6        8.5%       0.86 s      4.10 s   under - misses task blinks
+#:    4.0       13.4       16.5%       0.83 s      1.81 s   conservative, defensible
+#:    3.5       17.7       22.3%       0.85 s      1.18 s   <- default, top of normal band
+#:    3.0       22.1       29.1%       0.89 s      0.85 s   over - above resting rate
+#:    2.0       25.2       40.8%       1.09 s      0.64 s   count saturates, spans widen
+#:
+#: Note what happens below 3.0: the event count saturates near 600 while the
+#: excluded fraction climbs to 41-47% and the mean span grows from 0.89 s to 1.33 s.
+#: It stops finding new blinks and starts merging and widening the ones it has, so
+#: the extra cost buys nothing. Tune with --blink-sd; 4.0 if you would rather keep
+#: data than catch every event.
+N_ROBUST_SD = 3.5
 
 #: Window for the OPTIONAL local threshold (`adaptive=True`), which is OFF by
 #: default. A local threshold sounds better than a global one and is worse here:
