@@ -145,16 +145,27 @@ explicitly. Intermediate EDFs go to `data/derived/` (gitignored — regenerate a
 > **Consequence:** every PNG under `graph/summary/` and `graph/eeg/` was produced before this fix and
 > is affected for those 14 files. Re-run the pipeline to regenerate them.
 
-### Plot the raw EEG traces (diagnostic, not part of the analysis)
+### Plot the processed EEG traces
 
 ```bash
-python code/analysis/plot_raw_eeg.py            # -> graph/eeg_bl/<stem>_raw_eeg.png
+python code/analysis/plot_eeg.py                # -> graph/eeg_bl/<stem>_eeg.png
 ```
 
-Optional and not run by `run_session_analysis.py`. Plots the EEG voltage itself — two full-session
-channel views, a short zoom, and a panel comparing against what the EDF export stores. This is the
-tool that surfaced the overflow above, so it is worth keeping for judging a new recording, but the
-analysis deliverables are the processed `_summary.png` / `_FI.png` figures.
+Shows the EEG the analysis actually consumes — the `AF3_processed` / `AF4_processed` channels named
+by `metadata.EEG_CHANNELS`, read from the exported EDF — over the same block timeline. Four panels:
+each channel across the session, a short zoom where individual rhythms resolve, and band power per
+block. The `_summary.png` / `_FI.png` figures reduce all of this to one β/α ratio, so use this when
+you need to see what that ratio was computed from.
+
+> **The WPT denoising is computed and then ignored.** When a recording fails the band-noise check the
+> pipeline applies WPT denoising and writes it as a *separate* channel pair
+> (`AF3_denoised`/`AF4_denoised`), routing the file to `edf/good_denoised/`. It does not overwrite
+> `_processed` — and `metadata.EEG_CHANNELS` names `_processed`, so the Focus Index is computed from
+> the channel that failed the check. `minhanh_29_16_29` is exactly this case, and it matters because
+> the denoiser targets the band that failed: beta power drops 2.8× on AF3 (64.8 → 23.3 µV²) and 2.3×
+> on AF4 while alpha barely moves (24.0 → 21.5). Since FI = β/α, its Focus Index is roughly **2×
+> inflated** versus the denoised channel — FI 2.70 against 1.08 on AF3. Either point
+> `EEG_CHANNELS` at the denoised pair when it exists, or have the denoiser overwrite `_processed`.
 
 > **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
 > (as shown above). The standalone `eeg_fi_line_chart.py` ignores that flag and always
