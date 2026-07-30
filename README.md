@@ -106,18 +106,18 @@ python code/analysis/eeg_fi_line_chart.py
 ### Analyse a PsychoPy battery session (`code/results/eeg_bl/`)
 
 ```bash
-python code/analysis/run_session_analysis.py --dry-run   # show pairings + timelines only
-python code/analysis/run_session_analysis.py             # write figures to graph/eeg_bl/
+python code/analysis/run_pipeline.py --battery --dry-run   # pairings + timelines only
+python code/analysis/run_pipeline.py --battery             # figures -> graph/eeg_bl/
 ```
 
 The two commands above assume the 12-block protocol, whose block order is encoded in the
 recording's filename (`…_F0-F1-…-F12.csv`). Recordings from the 7-block PsychoPy battery in
-`code/experiment/` need `run_session_analysis.py` instead, because their block order is
-**randomized per session and stored in `metadata.json`**, not in the filename. The driver pairs each
-recording in `code/results/eeg_bl/` with a session folder in `code/results/behaviors/`, builds the
-timeline from that session's `task_order` (see `code/analysis/session_timeline.py`), and hands it to
-the same `run_pipeline` code — so the figures are identical in form to the 12-block ones, only with
-real block names on the ruler.
+`code/experiment/` need `--battery` instead, because their block order is **randomized per session
+and stored in `metadata.json`**, not in the filename. It pairs each recording in
+`code/results/eeg_bl/` with a session folder in `code/results/behaviors/`, builds the timeline from
+that session's `task_order` (the session-timeline section of `utils.py`), and hands it to the same
+`run_pipeline()` code — so the figures are identical in form to the 12-block ones, only with real
+block names on the ruler.
 
 Recordings are named by informal nickname while sessions are keyed by student ID, so the pairing
 falls back to wall-clock containment. Anything unmatched or ambiguous is reported and analysed with
@@ -148,61 +148,79 @@ explicitly. Intermediate EDFs go to `data/derived/` (gitignored — regenerate a
 ### Browse the EEG in time windows
 
 ```bash
-python code/analysis/plot_eeg_windows.py               # 20 s strips, 12 per page
-python code/analysis/plot_eeg_windows.py --win 10 --strips 15 --only ban
+python code/analysis/eeg_fi_line_chart.py --windows                       # 20 s strips, 12/page
+python code/analysis/eeg_fi_line_chart.py --windows --win 10 --strips 15 --only ban
+python code/analysis/eeg_fi_line_chart.py --windows --from 700 --to 900
 ```
 
-A 28-minute recording on one axis is ~340 samples per pixel, so a full-session plot
-shows only the envelope — no waveform survives it. This renders the recording as a strip
-chart the way EEG is actually read: short windows at fixed scale, stacked down the page,
-paginated to the end. Writes a multi-page PDF per recording plus a PNG of one page.
+A 28-minute recording on one axis is ~340 samples per pixel, so a full-session plot shows only
+the envelope — no waveform survives it, which is why it reads as a solid chunked band. This
+renders the recording as a strip chart the way EEG is actually read: short windows at fixed
+scale, stacked down the page, paginated to the end. Writes a multi-page PDF per recording plus
+a PNG of one page.
 
 ### Blink / ocular artifact
 
-`code/analysis/blink.py` detects ocular spans and lets callers **exclude** them. It does
-not correct them: with two bipolar frontal derivations and no EOG channel there is no way
-to separate blink from brain (ICA needs more channels), so interpolating would invent data
-and quietly lower the variance. Band power is computed per surviving segment and
-PSD-averaged, so excising a span never introduces a splice step of its own.
+Detection lives in the ocular-artifact section of `utils.py` (`detect_blinks`,
+`band_power_clean`). It **excludes** spans rather than correcting them: with two bipolar frontal
+derivations and no EOG channel there is no way to separate blink from brain — ICA needs more
+channels — so interpolating would invent data and quietly lower the variance. Band power is
+computed per surviving segment and PSD-averaged, so excising a span never introduces a splice
+step of its own. Tune with `--blink-sd` (default 3.0 robust SDs; lower is more sensitive).
 
-**The baseline is deliberately not screened.** `run_all_experiments` spends 50 s of its
-182 s baseline on guided blinks and eye movements — those artifacts are the protocol, they
-are what pins the recording's time alignment, and five are individually logged in
-`task.csv`. Screening there would flag the protocol as noise and inflate the amplitude
-threshold for the whole recording.
+**The baseline is deliberately not screened.** `run_all_experiments` spends 50 s of its 182 s
+baseline on guided blinks and eye movements — those artifacts are the protocol, they are what
+pins the recording's time alignment, and five are individually logged in `task.csv`. Screening
+there would flag the protocol as noise and inflate the amplitude threshold everywhere else.
 
-Measured effect, which is the signature of genuine ocular contamination — low frequencies
-collapse while beta barely moves:
+At the default threshold: `ban_29_14_40` 545 spans / 29.1% of time excluded,
+`minhanh_29_16_29` 289 spans / 28.7%.
 
-| | spans | time excluded | delta | theta | alpha | beta |
-|---|---|---|---|---|---|---|
-| `ban_29_14_40` | 164 | 8.5% | ×0.63 | ×0.60 | ×0.61 | ×0.94 |
-| `minhanh_29_16_29` | 300 | 22.3% | **×0.14** | ×0.29 | ×0.76 | ×0.88 |
-
-Note this *raises* β/α, since blinks add more power to alpha than to beta — so the focus
-index in the pre-existing figures is biased low, not high.
+> **What exclusion does and does not fix.** It removes discrete events, and on the strip charts
+> the marked spans now cover essentially every visible deflection. But it does **not** clean up
+> the band composition: sweeping the threshold from 6.0 to 1.5 robust SDs moves `ban`'s excluded
+> fraction from 4.7% to 46.8% while its delta share goes 87.3% → 88.5%, i.e. not at all. Its
+> low-frequency excess is *continuous drift*, not a train of separable blinks, so no exclusion
+> threshold rescues the spectrum. (An earlier version of this README quoted per-band ratios of
+> ×0.63/×0.14 as evidence exclusion worked — those compared a whole-record Welch against a
+> per-segment average, two different estimators, and overstated the effect. The threshold sweep
+> above is the internally consistent comparison.)
+>
+> A *local* threshold also sounds better than a global one and is worse here: when a block is
+> blink-dense the local level rises to meet the blinks and the detector stops seeing them. Over
+> `ban`'s visibly blink-heavy 200–220 s Addition block, global finds 13 spans and adaptive 4.
+> Hence `adaptive=False` by default.
 
 ### Plot the processed EEG traces
 
 ```bash
-python code/analysis/plot_eeg.py                # -> graph/eeg_bl/<stem>_eeg.png
+python code/analysis/eeg_fi_line_chart.py --traces      # -> graph/eeg_bl/<stem>_eeg.png
 ```
 
 Shows the EEG the analysis actually consumes — the `AF3_processed` / `AF4_processed` channels named
-by `metadata.EEG_CHANNELS`, read from the exported EDF — over the same block timeline. Four panels:
-each channel across the session, a short zoom where individual rhythms resolve, and band power per
-block. The `_summary.png` / `_FI.png` figures reduce all of this to one β/α ratio, so use this when
-you need to see what that ratio was computed from.
+by `metadata.EEG_CHANNELS`, read from the exported EDF — over the same block timeline. Three panels:
+each channel across the session with an artifact rug, then a short zoom where individual rhythms
+resolve. A PASS/FAIL banner reports the baseline's eyes-closed alpha reactivity per channel, which
+is the one built-in physiological validity check these recordings carry. The `_summary.png` /
+`_FI.png` figures reduce all of this to one β/α ratio, so use this to see what that ratio came from.
 
-> **The WPT denoising is computed and then ignored.** When a recording fails the band-noise check the
-> pipeline applies WPT denoising and writes it as a *separate* channel pair
-> (`AF3_denoised`/`AF4_denoised`), routing the file to `edf/good_denoised/`. It does not overwrite
-> `_processed` — and `metadata.EEG_CHANNELS` names `_processed`, so the Focus Index is computed from
-> the channel that failed the check. `minhanh_29_16_29` is exactly this case, and it matters because
-> the denoiser targets the band that failed: beta power drops 2.8× on AF3 (64.8 → 23.3 µV²) and 2.3×
-> on AF4 while alpha barely moves (24.0 → 21.5). Since FI = β/α, its Focus Index is roughly **2×
-> inflated** versus the denoised channel — FI 2.70 against 1.08 on AF3. Either point
-> `EEG_CHANNELS` at the denoised pair when it exists, or have the denoiser overwrite `_processed`.
+> **The WPT denoising is computed and then ignored — but the denoised channel is not the answer.**
+> When a recording fails the band-noise check the pipeline applies WPT denoising and writes it as a
+> *separate* channel pair (`AF3_denoised`/`AF4_denoised`), routing the file to `edf/good_denoised/`.
+> It does not overwrite `_processed`, and `metadata.EEG_CHANNELS` names `_processed`, so the Focus
+> Index is computed from the channel that failed the check. `minhanh_29_16_29` is exactly this case:
+> beta drops 2.8× on AF3 (64.8 → 23.3 µV²) while alpha barely moves (24.0 → 21.5), so its FI reads
+> 2.70 from `_processed` against 1.08 from `_denoised`, and under the pipeline's own test the choice
+> flips p = 0.118 (ns) to p = 0.003 (\*\*).
+>
+> Do **not** conclude `_denoised` holds the right value. The WPT runs at `level=3`, which at 244 Hz
+> gives 15.25 Hz packets — so a "23–27 Hz" target thresholds the whole 15.25–30.5 Hz packet:
+> measured attenuation is 5–17 dB across 18–30 Hz versus 0.84–0.96 gain across 8–12 Hz. The FI move
+> is the filter's shape, not the participant's brain. And the 13.25–14.5 Hz interference that
+> actually failed the check sits in the untouched 0–15.25 Hz packet and survives (28.4 → 12.5), so
+> the post-WPT re-check passes because the denominator shrank, not because the artifact went away.
+> **Neither channel yields a valid FI for that recording.** Raising the WPT level is the root fix;
+> repointing `EEG_CHANNELS` alone would just swap one wrong number for another.
 
 > **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
 > (as shown above). The standalone `eeg_fi_line_chart.py` ignores that flag and always

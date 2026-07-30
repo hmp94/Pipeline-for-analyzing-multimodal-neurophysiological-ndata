@@ -3,14 +3,26 @@ metadata.py — single source of truth for all experiment parameters.
 Edit this file only; all analysis scripts import from here.
 """
 
+import os
+
 import numpy as np
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
+# ── Paths — 12-block corpus (absolute, outside the repo) ──────────────────────
 DATA_CSV_DIR    = "/Users/minhphan/Documents/Brain-Life/data/raw/csv"
 DATA_EDF_DIR    = "/Users/minhphan/Documents/Brain-Life/data/raw/edf/good"
 GRAPH_FNIRS_DIR   = "/Users/minhphan/Documents/Brain-Life/graph/fnirs"
 GRAPH_EEG_DIR     = "/Users/minhphan/Documents/Brain-Life/graph/eeg"
 GRAPH_SUMMARY_DIR = "/Users/minhphan/Documents/Brain-Life/graph/summary"
+
+# ── Paths — 7-block PsychoPy battery (repo-relative) ──────────────────────────
+# Resolved from this file's location, not the working directory, so the battery
+# entry points behave the same wherever they are launched from.
+_ANALYSIS_DIR     = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT         = os.path.dirname(os.path.dirname(_ANALYSIS_DIR))
+EEG_BL_DIR        = os.path.join(REPO_ROOT, "code", "results", "eeg_bl")
+BEHAVIORS_DIR     = os.path.join(REPO_ROOT, "code", "results", "behaviors")
+BATTERY_EDF_DIR   = os.path.join(REPO_ROOT, "data", "derived", "eeg_bl", "edf")
+BATTERY_GRAPH_DIR = os.path.join(REPO_ROOT, "graph", "eeg_bl")
 
 # ── Shared timeline ───────────────────────────────────────────────────────────
 TASK_DUR     = 110   # seconds — duration of each task/baseline block

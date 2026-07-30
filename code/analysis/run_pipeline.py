@@ -52,13 +52,18 @@ from metadata import (
     FNIRS_FS, FNIRS_COL_RED, FNIRS_COL_IR, FNIRS_HEMO_BAND,
     EEG_FS, EEG_CHANNELS, EEG_FI_WIN, EEG_FI_STEP,
     GRAPH_FNIRS_DIR, GRAPH_EEG_DIR, GRAPH_SUMMARY_DIR,
+    EEG_BL_DIR, BEHAVIORS_DIR, BATTERY_EDF_DIR, BATTERY_GRAPH_DIR,
 )
 from utils import (
     get_timeline, filter_outliers, zscore, paired_test, raw_pairs, sig_pairs, fi_pairs,
     rmssd_windows, fmt_paired, shade_timeline, timeline_legend,
+    load_session, measure_block_durations, build_session_windows,
+    generic_task_order, find_session_for_recording, session_duration,
+    describe_windows, verify_against_experiment_settings,
 )
 
 import argparse
+import glob
 import shutil
 import tempfile
 
@@ -144,7 +149,7 @@ def plot_combined_summary(
     `windows` overrides the timeline. Left as None it is recovered from the
     filename's F0-F1-… order, which is right for the 12-block corpus; a
     randomized PsychoPy session must pass the windows built by
-    session_timeline.build_session_windows() instead, since its order lives in
+    utils.build_session_windows() instead, since its order lives in
     metadata.json rather than the filename.
     """
     stem = os.path.splitext(os.path.basename(csv_path))[0]
@@ -402,7 +407,7 @@ def run_pipeline(
       file, eeg, fnirs, ppg, fi
 
     `windows_for` optionally maps a CSV path to a prebuilt timeline, for
-    recordings whose block order is not in the filename (see session_timeline).
+    recordings whose block order is not in the filename (see the session-timeline section of utils).
     `title_for` likewise maps a CSV path to a figure title. Both default to the
     filename-derived behaviour used by the 12-block corpus.
     """
@@ -554,8 +559,24 @@ def _parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument("csv_input",      help="CSV file or folder of CSV files")
-    p.add_argument("edf_output",     help="Output folder for EDF files")
+    # Optional so --battery can supply them from metadata.py; positional use is
+    # unchanged for the 12-block corpus.
+    p.add_argument("csv_input",  nargs="?", help="CSV file or folder of CSV files")
+    p.add_argument("edf_output", nargs="?", help="Output folder for EDF files")
+    p.add_argument("--battery", action="store_true",
+                   help="run over code/results/eeg_bl/, taking each block order from "
+                        "the paired session's metadata.json instead of the filename")
+    p.add_argument("--only", default=None,
+                   help="--battery: substring filter on the recording filename")
+    p.add_argument("--dry-run", action="store_true",
+                   help="--battery: report pairings and timelines, produce no figures")
+    p.add_argument("--map", action="append", default=[], metavar="CSV=SESSION",
+                   help="--battery: force a pairing; repeatable")
+    p.add_argument("--offset", action="append", default=[], metavar="CSV=SECONDS",
+                   help="--battery: extra timeline shift for a recording that did not "
+                        "start at the SPACE press; repeatable")
+    p.add_argument("--offset-all", type=float, default=0.0, metavar="SECONDS",
+                   help="--battery: apply an extra shift to every recording")
     p.add_argument("--eeg-fs",       type=int, default=EEG_FS,  help=f"EEG sampling rate (default {EEG_FS})")
     p.add_argument("--device",       default="BL", choices=["BL", "MUSE"], help="EEG device type")
     p.add_argument("--fnirs-fs",     type=int, default=100,  help="fNIRS sampling rate (default 100)")
@@ -567,11 +588,168 @@ def _parse_args():
     p.add_argument("--fi-save",      default=None,           help="Dir to save FI plots (default: show)")
     p.add_argument("--summary-save", default=GRAPH_SUMMARY_DIR, help="Dir to save combined summary PNGs")
     p.add_argument("--show-summary",   action="store_true", help="Show combined summary plot interactively")
-    return p.parse_args()
+    args = p.parse_args()
+    if not args.battery and (args.csv_input is None or args.edf_output is None):
+        p.error("csv_input and edf_output are required unless --battery is given")
+    return args
+
+
+def _kv(items, cast, flag):
+    out = {}
+    for item in items:
+        if "=" not in item:
+            raise SystemExit(f"{flag} needs CSV=VALUE, got {item!r}")
+        k, v = item.split("=", 1)
+        out[k.strip()] = cast(v.strip())
+    return out
+
+
+
+
+# ==============================================================================
+# Battery driver — the 7-block PsychoPy sessions (was run_session_analysis.py)
+# ==============================================================================
+# run_pipeline() above recovers the block order from the filename, which is right
+# for the 12-block corpus. The battery randomises its order per session and stores
+# it in metadata.json, so this driver pairs each recording in code/results/eeg_bl/
+# with a session folder, builds the timeline from that session's task_order, and
+# hands the windows to the same run_pipeline().
+#
+# Pairing caveat: recordings are named by informal nickname while sessions are keyed
+# by student ID, so wall-clock containment is the only available link. Anything
+# ambiguous or unmatched is reported and analysed with generic block labels rather
+# than guessed at; --map states a pairing explicitly.
+
+def _recording_seconds(csv_path, eeg_fs=EEG_FS):
+    """Recording length from the row count — one row per EEG sample."""
+    try:
+        with open(csv_path, "rb") as f:
+            rows = sum(1 for _ in f) - 1
+        return rows / eeg_fs if rows > 0 else None
+    except OSError:
+        return None
+
+
+def resolve_pairings(csv_paths, explicit=None, offsets=None, default_offset=0.0):
+    """Attach a session (or None) to every recording, with its timeline."""
+    explicit, offsets = explicit or {}, offsets or {}
+    plans = []
+    for csv_path in csv_paths:
+        stem = os.path.splitext(os.path.basename(csv_path))[0]
+        base = os.path.basename(csv_path)
+
+        forced = explicit.get(base) or explicit.get(stem)
+        if forced:
+            d = forced if os.path.isdir(forced) else os.path.join(BEHAVIORS_DIR, forced)
+            if os.path.isdir(d):
+                session, note = load_session(d), f"paired explicitly with {forced} (--map)"
+            else:
+                session, note = None, f"--map target not found: {forced}"
+        else:
+            session, note = find_session_for_recording(csv_path, BEHAVIORS_DIR)
+
+        t0 = float(offsets.get(base, offsets.get(stem, default_offset)))
+        shift = f"   [t0 {t0:+.1f}s]" if t0 else ""
+        if session is not None:
+            windows = build_session_windows(
+                session["task_order"],
+                measured=measure_block_durations(session["dir"]), t0=t0)
+            title = (f"{stem}   —   session {session['session']}"
+                     f"   (order from metadata.json){shift}")
+        else:
+            windows = build_session_windows(generic_task_order(), t0=t0)
+            title = f"{stem}   —   NO PAIRED SESSION, block labels are generic{shift}"
+
+        plans.append(dict(csv=csv_path, stem=stem, session=session,
+                          windows=windows, note=note, title=title))
+    return plans
+
+
+def report_pairings(plans):
+    """Print what each recording paired with and how it will be segmented."""
+    for p in plans:
+        print(f"\n{'=' * 72}\n{p['stem']}\n{'=' * 72}")
+        print(f"  pairing : {p['note']}")
+        if p["session"]:
+            s = p["session"]
+            print(f"  session : {s['session']}  participant={s['participant']}  "
+                  f"aborted={s['aborted']}")
+            print(f"  order   : {' -> '.join(s['task_order'])}")
+        dur = session_duration(p["windows"])
+        print(f"  timeline: {dur:.1f} s ({dur / 60:.1f} min) over "
+              f"{len(p['windows'])} windows")
+        print(describe_windows(p["windows"]))
+        actual = _recording_seconds(p["csv"])
+        if actual:
+            print(f"  recording length: {actual:.1f} s ({actual / 60:.1f} min); "
+                  f"timeline covers {dur:.1f} s, slack {actual - dur:+.1f} s")
+
+
+def run_battery(only=None, explicit=None, offsets=None, default_offset=0.0,
+                dry_run=False, edf_dir=None, graph_dir=None):
+    """Run the full pipeline over code/results/eeg_bl/ with metadata timelines."""
+    edf_dir = edf_dir or BATTERY_EDF_DIR
+    graph_dir = graph_dir or BATTERY_GRAPH_DIR
+
+    csv_paths = sorted(glob.glob(os.path.join(EEG_BL_DIR, "*.csv")))
+    if only:
+        csv_paths = [p for p in csv_paths if only in os.path.basename(p)]
+    if not csv_paths:
+        print(f"No CSV recordings found in {EEG_BL_DIR}")
+        return []
+
+    drift = verify_against_experiment_settings()
+    if drift:
+        print("WARNING — timing constants are out of sync with "
+              "code/experiment/settings.py:")
+        for d in drift:
+            print(f"  - {d}")
+
+    plans = resolve_pairings(csv_paths, explicit, offsets, default_offset)
+    report_pairings(plans)
+
+    unpaired = [p["stem"] for p in plans if p["session"] is None]
+    if unpaired:
+        print(f"\nWARNING — {len(unpaired)} recording(s) have no paired session, so "
+              f"their block labels are generic placeholders, NOT the real task order:")
+        for stem in unpaired:
+            print(f"  - {stem}")
+
+    if dry_run:
+        print("\n--dry-run: no figures produced.")
+        return plans
+
+    os.makedirs(graph_dir, exist_ok=True)
+    os.makedirs(edf_dir, exist_ok=True)
+    results = []
+    for p in plans:
+        print(f"\n{'#' * 72}\n#  {p['stem']}\n{'#' * 72}")
+        results.extend(run_pipeline(
+            csv_input=p["csv"], edf_output_dir=edf_dir,
+            fnirs_plot=False, ppg_plot=False,
+            fi_save_dir=graph_dir, summary_save_dir=graph_dir, show_summary=False,
+            windows_for={p["csv"]: p["windows"]},
+            title_for={p["csv"]: p["title"]}))
+    print(f"\n{'=' * 72}\nFigures written to {graph_dir}\n{'=' * 72}")
+    for f in sorted(os.listdir(graph_dir)):
+        print(f"  {f}")
+    return results
 
 
 if __name__ == "__main__":
     args = _parse_args()
+    if args.battery:
+        run_battery(
+            only=args.only,
+            explicit=_kv(args.map, str, "--map"),
+            offsets=_kv(args.offset, float, "--offset"),
+            default_offset=args.offset_all,
+            dry_run=args.dry_run,
+            edf_dir=args.edf_output or None,
+            graph_dir=args.summary_save
+            if args.summary_save != GRAPH_SUMMARY_DIR else None,
+        )
+        raise SystemExit(0)
     run_pipeline(
         csv_input=args.csv_input,
         edf_output_dir=args.edf_output,
