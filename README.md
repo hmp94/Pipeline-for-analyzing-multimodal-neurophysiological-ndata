@@ -124,6 +124,25 @@ falls back to wall-clock containment. Anything unmatched or ambiguous is reporte
 generic block labels rather than guessed at; use `--map <csv>=<session>` to state a pairing
 explicitly. Intermediate EDFs go to `data/derived/` (gitignored — regenerate as needed).
 
+### Plot the raw EEG traces
+
+```bash
+python code/analysis/plot_raw_eeg.py            # -> graph/eeg_bl/<stem>_raw_eeg.png
+```
+
+The summary and FI figures show the Focus Index, a derived measure. This plots the EEG voltage
+itself over the same block timeline — two full-session channel views, a 10 s zoom, and a panel
+showing what the EDF export actually stores. Use it to judge a recording before trusting anything
+derived from it.
+
+> **Known bug it exposes.** `csv_to_edf_denoised.convert_to_uV()` casts to `np.int16` *before*
+> removing the DC offset. These electrodes sit near −160…−200 mV, so every sample is outside
+> int16's ±32767 and the cast wraps modulo 65536. Whether that matters depends on where a
+> recording's range falls: `ban_29_14_40` sits inside one wrap band (0 induced steps, harmless
+> constant offset), while `minhanh_29_16_29` straddles a band edge and takes 41,329 steps of
+> ±65536 µV on AF3 — so anything computed from *its* EDF, including its FI panel, is meaningless.
+> The fix is a one-line reorder: subtract the DC reference and stay in float before any cast.
+
 > **Output locations.** `run_pipeline.py` writes its summary PNGs to `--summary-save`
 > (as shown above). The standalone `eeg_fi_line_chart.py` ignores that flag and always
 > writes to the `GRAPH_*` paths defined in `code/analysis/metadata.py`, which are
