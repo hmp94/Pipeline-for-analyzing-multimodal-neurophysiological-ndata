@@ -4,9 +4,9 @@ Mental arithmetic task - multiplication (PsychoPy).
 PsychoPy version of the "H2 (Multiply)" task from the NEW_VALID_SUBFOCUS battery
 (arithmetic_multiply/): continuously multiply two 2-digit numbers for 2 minutes.
 
-Output:  results/<participant>_<timestamp>/task.csv     (task_type == "Multiplication")
+Output:  results/behaviors/<participant>_<timestamp>/task.csv     (task_type == "Multiplication")
          columns incl. num1, num2, correct_answer, response, reaction_time, correct
-         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
+         results/behaviors/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Task:    a problem "47 x 58 = ?" stays on screen while the participant types
          the answer (0-9 or numpad); BACKSPACE deletes, ENTER submits.

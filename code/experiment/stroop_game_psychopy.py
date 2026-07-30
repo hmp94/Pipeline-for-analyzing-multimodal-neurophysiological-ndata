@@ -1,10 +1,10 @@
 """
 Stroop task (PsychoPy).
 
-Output:  results/<participant>_<timestamp>/task.csv     (task_type == "Stroop A")
+Output:  results/behaviors/<participant>_<timestamp>/task.csv     (task_type == "Stroop A")
          columns incl. stimulus, word, color, response,
          reaction_time, reaction_time_from_onset, correct
-         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
+         results/behaviors/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Task:    fixation -> word shown 250 ms -> 2000 ms response window -> feedback.
          Keys are accepted only after the word disappears.

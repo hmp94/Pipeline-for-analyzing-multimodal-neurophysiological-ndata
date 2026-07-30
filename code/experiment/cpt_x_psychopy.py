@@ -1,9 +1,9 @@
 """
 CPT-X sustained-attention task (PsychoPy).
 
-Output:  results/<participant>_<timestamp>/task.csv     (task_type == "CPT-X")
+Output:  results/behaviors/<participant>_<timestamp>/task.csv     (task_type == "CPT-X")
          columns incl. stimulus (the letter), response, reaction_time, correct
-         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
+         results/behaviors/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Task:    single uppercase letters appear one at a time, each flashed for
          stimulus_time (default 250 ms) then blank until the next onset.

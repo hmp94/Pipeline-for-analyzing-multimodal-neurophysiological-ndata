@@ -5,9 +5,9 @@ PsychoPy version of the "L2 (Story)" task from the NEW_VALID_SUBFOCUS battery,
 which opened a Vietnamese fairy tale web page (Nguyen Khoa Dang) to read for
 2 minutes.  Here the story is shown as pages of text in a PsychoPy window.
 
-Output:  results/<participant>_<timestamp>/task.csv     (task_type == "Fairy Tale")
+Output:  results/behaviors/<participant>_<timestamp>/task.csv     (task_type == "Fairy Tale")
          event, page, time_ms      (task_start / page_view / task_end rows)
-         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
+         results/behaviors/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Task:    read silently.  SPACE or RIGHT arrow -> next page, LEFT -> previous.
          The task ends automatically after task_duration (default 120 s).

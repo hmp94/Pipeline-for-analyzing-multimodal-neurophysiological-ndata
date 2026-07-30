@@ -115,8 +115,13 @@ python code/analysis/eeg_fi_line_chart.py
 ## Experiment Tasks
 
 The PsychoPy tasks in `code/experiment/` are run on the acquisition machine while EEG/fNIRS/PPG
-are recorded. Each writes to `./results/` (a per-task `Game Result - <participant> <Task>.csv`
-plus a `… info.json` with demographics).
+are recorded. Every run — a whole session via `run_all_experiments.py`, or a single task on its
+own — creates one folder per session at `code/results/behaviors/<participant>_<timestamp>/`
+holding exactly two files: `task.csv` (every trial and event of the session in one table, keyed
+by the `task_type` column) and `metadata.json` (demographics plus task order, which tasks
+completed, per-task scores, and the `aborted` flag). That location is resolved relative to
+`experiment_io.py` rather than the shell's working directory, so it is the same folder no matter
+where you launch from.
 
 > **Tuning the tasks.** Two central files hold everything you'd want to adjust:
 > `content.py` for all on-screen **text**, and `settings.py` for all **numeric parameters**
@@ -148,9 +153,9 @@ python code/experiment/run_all_experiments.py
 - One window is shared by every task, so the screen never flashes between them — the transitions
   advance **automatically** (a short countdown), with no key press needed to confirm readiness.
   SPACE is only an optional early-skip; **ESC** aborts the whole session and saves partial data.
-- In addition to the per-task files, it writes a session manifest
-  `Game Result - <participant> Session.json` recording the randomized order, which tasks
-  completed, and whether the session was aborted.
+- The whole session lands in one folder, `code/results/behaviors/<participant>_<timestamp>/`,
+  whose `metadata.json` records the randomized order, which tasks completed, and whether the
+  session was aborted.
 
 ### Run a single task
 

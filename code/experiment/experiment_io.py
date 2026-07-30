@@ -4,7 +4,7 @@ experiment_io.py — shared results output for the cognitive task battery.
 Every run (a full session via run_all_experiments.py, or a single task on its
 own) produces ONE folder per session containing exactly two files:
 
-    results/<participant>_<timestamp>/
+    results/behaviors/<participant>_<timestamp>/
         metadata.json   # demographics + session info (order, completion, scores)
         task.csv        # every task's trials in one table, keyed by task_type
 
@@ -30,6 +30,11 @@ CANONICAL_COLUMNS = [
     "event", "page", "time_ms",                                   # reading
 ]
 
+# Behavioural sessions get their own subfolder of results/, so they stay separate
+# from the EEG recordings that are copied in by hand from the two headsets
+# (results/eeg_bl/ for the Brain-Life band, results/eeg_natus/ for the Natus system).
+BEHAVIOR_SUBDIR = "behaviors"
+
 
 def _results_base(results_dir_name="results"):
     """Base folder for results.
@@ -37,7 +42,8 @@ def _results_base(results_dir_name="results"):
     Fixed relative to this file, NOT the working directory, so a session always
     writes to the same place no matter where it was launched from. This module is
     code/experiment/experiment_io.py, so the parent of experiment/ is code/ —
-    results therefore land in `code/results/` (a sibling of experiment/).
+    results therefore land in `code/results/` (a sibling of experiment/), with
+    behavioural sessions under its `behaviors/` subfolder.
     Frozen builds (PyInstaller) write next to the executable instead.
     """
     if getattr(sys, "frozen", False):
@@ -48,10 +54,10 @@ def _results_base(results_dir_name="results"):
 
 
 def make_session_dir(participant, results_dir_name="results", when=None):
-    """Create results/<participant>_<timestamp>/ and return (session_id, path)."""
+    """Create results/behaviors/<participant>_<timestamp>/, return (session_id, path)."""
     when = when or datetime.now()
     session_id = f"{participant}_{when.strftime('%Y%m%d_%H%M%S')}"
-    path = os.path.join(_results_base(results_dir_name), session_id)
+    path = os.path.join(_results_base(results_dir_name), BEHAVIOR_SUBDIR, session_id)
     os.makedirs(path, exist_ok=True)
     return session_id, path
 

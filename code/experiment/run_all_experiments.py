@@ -29,7 +29,7 @@ Because every task shares the one window, the screen never flashes between
 tasks — useful when EEG/fNIRS/PPG are recording continuously.
 
 Output — one folder per session:
-  results/<participant>_<timestamp>/
+  results/behaviors/<participant>_<timestamp>/
     metadata.json   demographics + session info (order, completion, scores)
     task.csv        every task's trials in one table, keyed by the task_type column
                     (the baseline logs baseline_start/baseline_end marker rows)
@@ -333,7 +333,7 @@ def main():
     order_labels = ["Baseline"] + task_labels
     print(f"Session order: {' -> '.join(order_labels)}")
 
-    # One folder per session: results/<participant>_<timestamp>/{metadata.json, task.csv}
+    # One folder per session: results/behaviors/<participant>_<timestamp>/{metadata.json, task.csv}
     session_id, session_dir = expio.make_session_dir(participant)
     all_rows = []           # every task's trials/events, combined; keyed by task_type
     summaries = []          # (label, summary string) per completed task

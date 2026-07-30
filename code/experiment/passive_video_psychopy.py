@@ -4,10 +4,10 @@ Passive visual observation task (PsychoPy).
 A passive "watch the moving image" block: the participant simply observes
 continuous motion for task_duration (default 180 s) and makes no response.
 
-Output:  results/<participant>_<timestamp>/task.csv     (task_type == "Passive Video")
+Output:  results/behaviors/<participant>_<timestamp>/task.csv     (task_type == "Passive Video")
          event, time_ms      (task_start / task_end / aborted marker rows; the
          "event" value also carries the mode, e.g. "task_start:flow")
-         results/<participant>_<timestamp>/metadata.json  (demographics + summary)
+         results/behaviors/<participant>_<timestamp>/metadata.json  (demographics + summary)
 
 Stimulus:
     * If a video file (passive_video.mp4/.mov/.avi/.mkv/.webm) sits next to this

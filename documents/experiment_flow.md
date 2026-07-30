@@ -213,7 +213,8 @@ Mỗi bài (trong phiên) diễn ra theo thứ tự:
 
 ## 6. Dữ liệu & chỉnh tham số
 
-- Kết quả: `code/results/<MSSV>_<thời gian>/` gồm `task.csv` (mọi trial) + `metadata.json`.
+- Kết quả hành vi: `code/results/behaviors/<MSSV>_<thời gian>/` gồm `task.csv` (mọi trial) + `metadata.json`.
+- Dữ liệu EEG (sao chép tay, không do phần mềm này ghi): `code/results/eeg_bl/` cho băng đô Brain-Life, `code/results/eeg_natus/` cho hệ EEG lâm sàng Natus.
 - Chỉnh **thời lượng / khoảng cách / màu / cỡ chữ / tiếng bíp**: `code/experiment/settings.py`.
 - Chỉnh **chữ hiển thị**: `code/experiment/content.py`.
 
