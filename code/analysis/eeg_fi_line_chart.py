@@ -18,7 +18,7 @@ from utils import (
     shade_timeline, timeline_legend, robust_sd,
     build_session_windows, generic_task_order, measure_block_durations,
     find_session_for_recording, detect_blinks, spans_to_mask, describe_blinks,
-    display_stem, battery_windows_for, parse_task_order_arg,
+    display_stem, battery_windows_for, parse_task_order_arg, baseline_events,
     N_ROBUST_SD,
 )
 
@@ -223,6 +223,7 @@ CH_COLORS   = {"AF3": "#2a78d6", "AF4": "#eb6834"}
 SHADE_ALPHA = 0.16      # recessive: the blocks are context, the trace is data
 INK         = "#52514e"  # axis/grid ink, kept off pure black
 ARTIFACT    = "#e34948"  # status:critical - reserved, never a series hue
+CUE         = "#eda100"  # scripted blink prompt: blinks EXPECTED, not an artifact
 
 
 def find_battery_edf(stem):
@@ -422,7 +423,7 @@ def _block_at(windows, t):
 
 
 def _draw_window_page(proc, fs, spans, windows, t0, win, strips, scale,
-                      title, subtitle):
+                      title, subtitle, cues=(), phases=()):
     """One page of `strips` consecutive windows of `win` seconds each."""
     fig, axes = plt.subplots(strips, 1, figsize=(19, 1.15 * strips + 1.6))
     if strips == 1:
@@ -439,6 +440,29 @@ def _draw_window_page(proc, fs, spans, windows, t0, win, strips, scale,
             ax.axis("off")
             continue
         t = np.arange(s0, s1) / fs
+        # Baseline sub-phase, named on the strip so the protocol is legible. A phase
+        # already running at the strip start is labelled at the left edge; one that
+        # begins mid-strip is labelled where it begins. Labels closer than a tenth
+        # of the strip are dropped, keeping the later one — otherwise a boundary
+        # landing near a strip start prints two names on top of each other.
+        wanted = sorted((max(pa, a), plabel) for pa, pb, plabel in phases
+                        if pb > a and pa < b)
+        kept, min_gap = [], win * 0.10
+        for x, plabel in wanted:
+            if kept and x - kept[-1][0] < min_gap:
+                kept[-1] = (x, plabel)
+            else:
+                kept.append((x, plabel))
+        for x, plabel in kept:
+            ax.annotate(plabel, xy=(x + win * 0.008, 0.06),
+                        xycoords=("data", "axes fraction"), va="bottom",
+                        fontsize=7, style="italic", color=INK, zorder=6)
+        # Scripted blink prompts: blinks are EXPECTED here, so amber, not the red
+        # used for detected artifact. The baseline is never artifact-screened.
+        for ca, cb in cues:
+            if cb > a and ca < b:
+                ax.axvspan(max(ca, a), min(cb, b), color=CUE, alpha=0.42,
+                           lw=0, zorder=1)
         for sa, sb in spans:
             if sb > a and sa < b:
                 ax.axvspan(max(sa, a), min(sb, b), color=ARTIFACT, alpha=0.16,
@@ -466,18 +490,22 @@ def _draw_window_page(proc, fs, spans, windows, t0, win, strips, scale,
                     fontsize=7.5, color="#0b0b0b", fontweight="bold")
 
     axes[-1].set_xlabel("Time (s)", fontsize=8.5, color=INK)
-    fig.legend(handles=[mpatches.Patch(
-        facecolor=ARTIFACT, alpha=0.4,
-        label="blink / ocular span (excluded from statistics; baseline not screened)")],
-        loc="lower center", ncol=1, fontsize=8, frameon=False,
-        bbox_to_anchor=(0.5, 0.002))
+    handles = [mpatches.Patch(facecolor=ARTIFACT, alpha=0.4,
+               label="detected ocular span — excluded from statistics")]
+    if cues:
+        handles.insert(0, mpatches.Patch(
+            facecolor=CUE, alpha=0.6,
+            label="scripted “Chớp mắt” prompt — blinks EXPECTED here, baseline never screened"))
+    fig.legend(handles=handles, loc="lower center", ncol=len(handles), fontsize=8,
+               frameon=False, bbox_to_anchor=(0.5, 0.002))
     fig.tight_layout(rect=(0, 0.02, 1, 0.965))
     return fig
 
 
 def plot_eeg_windows(stem, edf_path, windows, who, graph_dir,
                      win=20.0, strips=12, scale=None, t_from=0.0, t_to=None,
-                     png_page=None, blink_sd=None, out_stem=None):
+                     png_page=None, blink_sd=None, out_stem=None,
+                     cues=(), phases=()):
     """Multi-page strip chart for one recording. Returns the PDF path.
 
     `out_stem` is the name used for the output files; it defaults to the short
@@ -516,7 +544,9 @@ def plot_eeg_windows(stem, edf_path, windows, who, graph_dir,
                 f"{out_stem}   —   {who}   —   {', '.join(EEG_CHANNELS)}",
                 f"page {pg + 1}/{n_pages}   ·   {t0:.0f}–{min(t0 + page_len, t_end):.0f} s"
                 f"   ·   ±{scale:.0f} µV per channel   ·   "
-                f"{binfo['n_spans']} ocular spans, {binfo['excluded_frac'] * 100:.1f}% of time")
+                f"{binfo['n_spans']} ocular spans, {binfo['excluded_frac'] * 100:.1f}% of time"
+                + (f"   ·   {len(cues)} scripted blink prompts in the baseline" if cues else ""),
+                cues=cues, phases=phases)
             pdf.savefig(fig, dpi=110)
             if pg + 1 == png_page:
                 png = os.path.join(graph_dir, f"{out_stem}_windows_p{pg + 1}.png")
@@ -551,6 +581,18 @@ def run_battery_plots(mode, only=None, graph_dir=None, orders=None, **kw):
         windows, who, note = battery_windows_for(
             csv_path, BEHAVIORS_DIR, order=(orders or {}).get(display_stem(stem))
                                           or (orders or {}).get(stem))
+
+        # Baseline sub-phases and blink prompts, shifted from baseline-relative into
+        # recording time. Only available when a session is paired.
+        cues, phases = (), ()
+        session, _ = find_session_for_recording(csv_path, BEHAVIORS_DIR)
+        if session is not None:
+            base = next((w for w in windows if w["is_baseline"]), None)
+            if base is not None:
+                ph, cu = baseline_events(session["dir"])
+                shift = base["t_start"]
+                phases = [(a + shift, b + shift, l) for a, b, l in ph]
+                cues = [(a + shift, b + shift) for a, b in cu]
         print(f"  pairing: {note}")
 
         if mode in ("traces", "both"):
@@ -561,6 +603,7 @@ def run_battery_plots(mode, only=None, graph_dir=None, orders=None, **kw):
                 blink_sd=kw.get("blink_sd")))
         if mode in ("windows", "both"):
             plot_eeg_windows(stem, edf_path, windows, who, graph_dir, out_stem=out_stem,
+                             cues=cues, phases=phases,
                              win=kw.get("win", 20.0), strips=kw.get("strips", 12),
                              scale=kw.get("scale"), t_from=kw.get("t_from", 0.0),
                              t_to=kw.get("t_to"), png_page=kw.get("png_page"),
@@ -586,8 +629,6 @@ def _parse_args():
                    help="processed-EEG trace figure per battery recording")
     p.add_argument("--windows", action="store_true",
                    help="paginated strip chart per battery recording")
-    p.add_argument("--blinks", action="store_true",
-                   help="check the baseline's five guided blink cues against the EEG")
     p.add_argument("--only", default=None, help="substring filter on the filename")
     p.add_argument("--order", action="append", default=[], metavar="REC=T1,T2,...",
                    help="block order for a recording with no session folder, e.g. "
@@ -610,157 +651,9 @@ def _parse_args():
 
 
 
-# ==============================================================================
-# Baseline blink-cue check
-# ==============================================================================
-# The baseline's blink phase asks for five guided blinks and logs each cue time in
-# the session's task.csv. That makes it the only part of the protocol with ground
-# truth: known events at known times. If they are not visible in the EEG, either
-# the electrodes were not recording the participant or the timeline is misaligned —
-# so this doubles as an acquisition check and an alignment check.
-
-def find_blink_cues(session_dir):
-    """The five logged blink cue times, in seconds from baseline start."""
-    path = os.path.join(session_dir, "task.csv")
-    out = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        import csv as _csv
-        for r in _csv.DictReader(f):
-            if r.get("task_type") == "Baseline" and (r.get("event") or "").startswith("blink_"):
-                out[r["event"]] = float(r["time_ms"]) / 1000.0
-    return [out[k] for k in sorted(out, key=lambda s: int(s.split("_")[1]))]
-
-
-def locate_blinks(x, fs, cue_times, search=(0.0, 30.0), respond_s=2.0):
-    """Best recording→baseline offset, and each cue's response, by scanning.
-
-    Scores an offset by the peak 0.5–5 Hz envelope in the `respond_s` window after
-    each cue — blink_N marks the START of a 1.4 s "Chớp mắt" prompt, so the blink
-    itself lands a beat later. Compared against the same score computed at offsets
-    all over the recording, which is the null: a real train scores far above it.
-    """
-    from scipy.signal import butter as _butter, sosfiltfilt as _sos
-    env = np.abs(_sos(_butter(3, [0.5, 5.0], btype="band", fs=fs, output="sos"),
-                      np.nan_to_num(x)))
-
-    def score(off):
-        s = 0.0
-        for c in cue_times:
-            a, b = int((off + c) * fs), int((off + c + respond_s) * fs)
-            if b < len(env):
-                s += env[a:b].max()
-        return s
-
-    grid = np.arange(search[0], search[1], 0.05)
-    best = max(grid, key=score)
-    null = float(np.median([score(o) for o in np.arange(200, len(x) / fs - 200, 7.0)]))
-
-    events = []
-    for c in cue_times:
-        a, b = int((best + c) * fs), int((best + c + respond_s) * fs)
-        seg = x[a:b]
-        k = int(np.argmax(np.abs(seg - np.median(seg))))
-        events.append(dict(cue=best + c, found=(a + k) / fs, lag=k / fs,
-                           p2p=float(np.ptp(seg))))
-    return best, score(best) / null if null else float("nan"), events
-
-
-def plot_blink_check(stem, edf_path, session_dir, save_path, pad_s=12.0):
-    """Zoom on the baseline blink phase with the five logged cues marked."""
-    sig, fs = read_edf(edf_path)
-    proc = {ch: sig[f"{ch}_processed"] for ch in ("AF3", "AF4")}
-    cue_times = find_blink_cues(session_dir)
-    if len(cue_times) < 2:
-        print("  no blink cues logged — skipping")
-        return None
-
-    x = np.mean([proc["AF3"], proc["AF4"]], axis=0)
-    off, ratio, events = locate_blinks(x, fs, cue_times)
-
-    t0 = events[0]["cue"] - pad_s
-    t1 = events[-1]["cue"] + pad_s
-    # Quiet eyes-open stretch, as the reference these are measured against.
-    floor = float(np.median([np.ptp(x[int(t * fs):int((t + 3) * fs)])
-                            for t in np.arange(off + 20, off + 65, 3)]))
-    ok = all(e["p2p"] > 2.5 * floor for e in events)
-
-    fig, axes = plt.subplots(2, 1, figsize=(17, 7), sharex=True)
-    fig.suptitle(f"{display_stem(stem)} — baseline blink cues: are the five guided "
-                 f"blinks in the EEG?", fontsize=11, fontweight="bold")
-    fig.text(0.5, 0.925,
-             f"{sum(e['p2p'] > 2.5 * floor for e in events)}/{len(events)} visible above "
-             f"2.5x the eyes-open floor ({floor:,.0f} µV)   ·   cue train scores "
-             f"{ratio:.1f}x chance   ·   recording→baseline offset {off:.2f} s",
-             ha="center", fontsize=9.5, fontweight="bold",
-             color="#14532d" if ok else "#7f1d1d")
-
-    for ax, ch in zip(axes, ("AF3", "AF4")):
-        a, b = int(t0 * fs), int(t1 * fs)
-        t = np.arange(a, b) / fs
-        ax.plot(t, proc[ch][a:b], lw=0.8, color=CH_COLORS[ch], zorder=3)
-        for i, e in enumerate(events, 1):
-            ax.axvspan(e["cue"], e["cue"] + 1.4, color="#eda100", alpha=0.28,
-                       lw=0, zorder=1)          # the 1.4 s "Chớp mắt" prompt
-            ax.axvline(e["found"], color=ARTIFACT, lw=1.0, ls="--", alpha=0.85, zorder=4)
-            if ch == "AF3":
-                ax.annotate(f"blink {i}\n{e['p2p']:,.0f} µV\n{e['p2p'] / floor:.0f}× floor",
-                            xy=(e["cue"] + 0.7, 0.97), xycoords=("data", "axes fraction"),
-                            ha="center", va="top", fontsize=7.5, color="#0b0b0b")
-        ax.set_ylabel(f"{ch}_processed  (µV)", fontsize=8.5, color=INK)
-        ax.grid(True, axis="y", alpha=0.18, lw=0.6)
-        ax.tick_params(labelsize=7.5, colors=INK)
-        for s in ("top", "right"):
-            ax.spines[s].set_visible(False)
-        # Robust limits: two of ban's cues carry mV-scale movement on top, which
-        # would flatten everything else if the axis chased them.
-        lim = 6 * robust_sd(x[int(t0 * fs):int(t1 * fs)])
-        ax.set_ylim(-lim, lim)
-
-    axes[-1].set_xlim(t0, t1)
-    axes[-1].set_xlabel("Recording time (s)", fontsize=9, color=INK)
-    fig.legend(handles=[
-        mpatches.Patch(facecolor="#eda100", alpha=0.4, label="1.4 s “Chớp mắt” cue (logged in task.csv)"),
-        mpatches.Patch(facecolor=ARTIFACT, label="largest deflection in the 2 s after the cue"),
-    ], loc="lower center", ncol=2, fontsize=8.5, frameon=False, bbox_to_anchor=(0.5, 0.005))
-    fig.tight_layout(rect=(0, 0.05, 1, 0.90))
-    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  Saved -> {save_path}")
-    return dict(stem=stem, offset=off, ratio=ratio, floor=floor, events=events, ok=ok)
-
-
-def run_blink_check(only=None, graph_dir=None):
-    graph_dir = graph_dir or BATTERY_GRAPH_DIR
-    paths = sorted(glob.glob(os.path.join(EEG_BL_DIR, "*.csv")))
-    if only:
-        paths = [p for p in paths if only in os.path.basename(p)]
-    all_stems = [os.path.splitext(os.path.basename(p))[0] for p in paths]
-    rows = []
-    for csv_path in paths:
-        stem = os.path.splitext(os.path.basename(csv_path))[0]
-        edf_path, _ = find_battery_edf(stem)
-        session, note = find_session_for_recording(csv_path, BEHAVIORS_DIR)
-        print(f"\n{stem}")
-        if edf_path is None or session is None:
-            print(f"  skipped — {'no EDF' if edf_path is None else note}")
-            continue
-        r = plot_blink_check(
-            stem, edf_path, session["dir"],
-            os.path.join(graph_dir, display_stem(stem, all_stems) + "_blinkcheck.png"))
-        if r:
-            rows.append(r)
-            for i, e in enumerate(r["events"], 1):
-                print(f"    blink {i}: {e['p2p']:8,.0f} µV  "
-                      f"{e['p2p'] / r['floor']:6.1f}x floor  lag {e['lag']:.2f}s")
-    return rows
-
-
 if __name__ == '__main__':
     args = _parse_args()
-    if args.blinks:
-        run_blink_check(only=args.only)
-    elif args.traces or args.windows:
+    if args.traces or args.windows:
         mode = "both" if (args.traces and args.windows) else (
             "traces" if args.traces else "windows")
         orders = {}

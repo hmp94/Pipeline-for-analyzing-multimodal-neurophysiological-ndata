@@ -525,6 +525,58 @@ def measure_block_durations(session_dir):
 
 # ── Building the timeline ─────────────────────────────────────────────────────
 
+#: How long the "Chớp mắt" prompt stays up. blink_N is logged at its START, so the
+#: blink itself lands toward the end of this window or just after.
+BLINK_CUE_S = 1.4
+
+#: The baseline's timed sub-phases, in the order run_baseline runs them, mapped to
+#: the marker that opens each. Ends are taken from the next marker in the list.
+BASELINE_PHASES = [
+    ("signal_check_start", "signal check"),
+    ("eyes_open_start",    "eyes open"),
+    ("blinks_start",       "guided blinks"),
+    ("h_move_start",       "horizontal eye movement"),
+    ("v_move_start",       "vertical eye movement"),
+    ("eyes_closed_start",  "eyes closed"),
+    ("baseline_end",       None),
+]
+
+
+def baseline_events(session_dir):
+    """Baseline markers from task.csv, in seconds from baseline start.
+
+    Returns (phases, cues): `phases` is [(start, end, label)] for the six timed
+    sub-phases, `cues` is [(start, end)] for each guided blink prompt. Both are
+    BASELINE-relative — add the baseline window's t_start to place them in the
+    recording. Empty lists when the file has no baseline markers.
+    """
+    path = os.path.join(session_dir, "task.csv")
+    marks = {}
+    try:
+        with open(path, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r.get("task_type") != "Baseline":
+                    continue
+                ev, raw = (r.get("event") or "").strip(), (r.get("time_ms") or "").strip()
+                if ev and raw:
+                    try:
+                        marks[ev] = float(raw) / 1000.0
+                    except ValueError:
+                        pass
+    except OSError:
+        return [], []
+
+    phases = []
+    for (key, label), (nxt, _) in zip(BASELINE_PHASES, BASELINE_PHASES[1:]):
+        if label and key in marks and nxt in marks:
+            phases.append((marks[key], marks[nxt], label))
+
+    cues = [(marks[k], marks[k] + BLINK_CUE_S)
+            for k in sorted((m for m in marks if m.startswith("blink_")),
+                            key=lambda s: int(s.split("_")[1]))]
+    return phases, cues
+
+
 def build_session_windows(task_order, measured=None, t0=0.0,
                           intro_s=INTRO_S, baseline_s=BASELINE_S, task_s=TASK_S,
                           rest_s=REST_S, prefocus_s=PREFOCUS_S):
