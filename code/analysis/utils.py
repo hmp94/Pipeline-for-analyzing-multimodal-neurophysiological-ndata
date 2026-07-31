@@ -66,6 +66,37 @@ def get_timeline(path):
     return build_windows(parse_task_order(path))
 
 
+def display_stem(stem, all_stems=None):
+    """Short, honest name for an output figure: just the subject.
+
+    Brain-Life names every export `<subject>_<day>_<HH>_<MM>_F0-F1-…-F12`, where the
+    trailing token is the block order from the DEVICE's own configuration. For the
+    12-block corpus that token is true, and `parse_task_order` reads the timeline
+    straight off it. For a battery recording it is a lie — it claims 13 blocks where
+    the session ran 7, and the real, randomized order lives in the session's
+    metadata.json. Carrying a wrong order in the name of every figure invites
+    someone to trust it, so figure filenames drop it, along with the recording
+    clock time, leaving `ban`, `minhanh`.
+
+    The order is NOT lost: every figure still shows the true block order on its
+    ruler, and the title names the session it came from. The EDF also keeps the full
+    original name so it still matches its source CSV.
+
+    Pass `all_stems` (every recording being written to the same folder) and the
+    timestamp is kept for any subject that appears more than once — two sessions
+    from one person must not quietly overwrite each other's figures.
+    """
+    def _short(s):
+        s = re.sub(r"_(?:F\d+|B)(?:-(?:F\d+|B))+$", "", s)      # block-order token
+        return re.sub(r"_\d{1,2}_\d{1,2}_\d{2}$", "", s)         # _day_HH_MM
+    short = _short(stem)
+    if all_stems:
+        clashes = [s for s in all_stems if _short(s) == short]
+        if len(clashes) > 1:
+            return re.sub(r"_(?:F\d+|B)(?:-(?:F\d+|B))+$", "", stem)   # keep the time
+    return short
+
+
 # ── Signal processing ─────────────────────────────────────────────────────────
 
 def zscore(signal):

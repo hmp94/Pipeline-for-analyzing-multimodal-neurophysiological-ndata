@@ -18,6 +18,7 @@ from utils import (
     shade_timeline, timeline_legend, robust_sd,
     build_session_windows, generic_task_order, measure_block_durations,
     find_session_for_recording, detect_blinks, spans_to_mask, describe_blinks,
+    display_stem,
     N_ROBUST_SD,
 )
 
@@ -487,8 +488,13 @@ def _draw_window_page(proc, fs, spans, windows, t0, win, strips, scale,
 
 def plot_eeg_windows(stem, edf_path, windows, who, graph_dir,
                      win=20.0, strips=12, scale=None, t_from=0.0, t_to=None,
-                     png_page=None, blink_sd=None):
-    """Multi-page strip chart for one recording. Returns the PDF path."""
+                     png_page=None, blink_sd=None, out_stem=None):
+    """Multi-page strip chart for one recording. Returns the PDF path.
+
+    `out_stem` is the name used for the output files; it defaults to the short
+    subject-only form, which drops the device's (wrong) block-order token.
+    """
+    out_stem = out_stem or display_stem(stem)
     sig, fs = read_edf(edf_path)
     proc = {ch: sig[f"{ch}_processed"] for ch in ("AF3", "AF4")}
 
@@ -512,19 +518,19 @@ def plot_eeg_windows(stem, edf_path, windows, who, graph_dir,
         png_page = int((first_task - t_from) // page_len) + 1
 
     os.makedirs(graph_dir, exist_ok=True)
-    pdf_path = os.path.join(graph_dir, stem + "_windows.pdf")
+    pdf_path = os.path.join(graph_dir, out_stem + "_windows.pdf")
     with PdfPages(pdf_path) as pdf:
         for pg in range(n_pages):
             t0 = t_from + pg * page_len
             fig = _draw_window_page(
                 proc, fs, spans, windows, t0, win, strips, scale,
-                f"{stem}   —   {who}   —   {', '.join(EEG_CHANNELS)}",
+                f"{out_stem}   —   {who}   —   {', '.join(EEG_CHANNELS)}",
                 f"page {pg + 1}/{n_pages}   ·   {t0:.0f}–{min(t0 + page_len, t_end):.0f} s"
                 f"   ·   ±{scale:.0f} µV per channel   ·   "
                 f"{binfo['n_spans']} ocular spans, {binfo['excluded_frac'] * 100:.1f}% of time")
             pdf.savefig(fig, dpi=110)
             if pg + 1 == png_page:
-                png = os.path.join(graph_dir, f"{stem}_windows_p{pg + 1}.png")
+                png = os.path.join(graph_dir, f"{out_stem}_windows_p{pg + 1}.png")
                 fig.savefig(png, dpi=110, bbox_inches="tight")
                 print(f"  Saved -> {png}")
             plt.close(fig)
@@ -542,9 +548,11 @@ def run_battery_plots(mode, only=None, graph_dir=None, **kw):
         print(f"No recordings in {EEG_BL_DIR}")
         return []
 
+    all_stems = [os.path.splitext(os.path.basename(p))[0] for p in paths]
     rows = []
     for csv_path in paths:
         stem = os.path.splitext(os.path.basename(csv_path))[0]
+        out_stem = display_stem(stem, all_stems)
         edf_path, quality = find_battery_edf(stem)
         print(f"\n{stem}")
         if edf_path is None:
@@ -556,12 +564,12 @@ def run_battery_plots(mode, only=None, graph_dir=None, **kw):
 
         if mode in ("traces", "both"):
             rows.append(plot_eeg_traces(
-                stem, edf_path, windows, f"{stem}   —   {who}",
-                os.path.join(graph_dir, stem + "_eeg.png"),
+                stem, edf_path, windows, f"{out_stem}   —   {who}",
+                os.path.join(graph_dir, out_stem + "_eeg.png"),
                 zoom_at=kw.get("zoom_at"), zoom_len=kw.get("zoom_len", 8.0),
                 blink_sd=kw.get("blink_sd")))
         if mode in ("windows", "both"):
-            plot_eeg_windows(stem, edf_path, windows, who, graph_dir,
+            plot_eeg_windows(stem, edf_path, windows, who, graph_dir, out_stem=out_stem,
                              win=kw.get("win", 20.0), strips=kw.get("strips", 12),
                              scale=kw.get("scale"), t_from=kw.get("t_from", 0.0),
                              t_to=kw.get("t_to"), png_page=kw.get("png_page"),

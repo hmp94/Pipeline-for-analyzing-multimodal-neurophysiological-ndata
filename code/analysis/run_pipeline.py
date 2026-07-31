@@ -56,7 +56,7 @@ from metadata import (
 )
 from utils import (
     get_timeline, filter_outliers, zscore, paired_test, raw_pairs, sig_pairs, fi_pairs,
-    rmssd_windows, fmt_paired, shade_timeline, timeline_legend,
+    rmssd_windows, fmt_paired, shade_timeline, timeline_legend, display_stem,
     load_session, measure_block_durations, build_session_windows,
     generic_task_order, find_session_for_recording, session_duration,
     describe_windows, verify_against_experiment_settings,
@@ -423,6 +423,8 @@ def run_pipeline(
     else:
         csv_files = [csv_input]
 
+    all_stems = [os.path.splitext(os.path.basename(p))[0] for p in csv_files]
+
     print(f"\n{'=' * 60}")
     print(f"Pipeline  —  {len(csv_files)} file(s)  →  {edf_output_dir}")
     print(f"{'=' * 60}")
@@ -499,7 +501,7 @@ def run_pipeline(
                 fi_save = None
                 if fi_save_dir:
                     os.makedirs(fi_save_dir, exist_ok=True)
-                    fi_save = os.path.join(fi_save_dir, stem + "_FI.png")
+                    fi_save = os.path.join(fi_save_dir, display_stem(stem, all_stems) + "_FI.png")
                 plot_fi_timeline(
                     edf_path,
                     channels=fi_channels,
@@ -523,7 +525,7 @@ def run_pipeline(
             summary_path = None
             if summary_save_dir:
                 os.makedirs(summary_save_dir, exist_ok=True)
-                summary_path = os.path.join(summary_save_dir, stem + "_summary.png")
+                summary_path = os.path.join(summary_save_dir, display_stem(stem, all_stems) + "_summary.png")
             plot_combined_summary(
                 csv_path=csv_path,
                 fnirs_result=record.get("fnirs"),
@@ -654,11 +656,12 @@ def resolve_pairings(csv_paths, explicit=None, offsets=None, default_offset=0.0)
             windows = build_session_windows(
                 session["task_order"],
                 measured=measure_block_durations(session["dir"]), t0=t0)
-            title = (f"{stem}   —   session {session['session']}"
-                     f"   (order from metadata.json){shift}")
+            title = (f"{display_stem(stem)}   —   session {session['session']}"
+                     f"   (block order below is from metadata.json){shift}")
         else:
             windows = build_session_windows(generic_task_order(), t0=t0)
-            title = f"{stem}   —   NO PAIRED SESSION, block labels are generic{shift}"
+            title = (f"{display_stem(stem)}   —   NO PAIRED SESSION, "
+                     f"block labels are generic{shift}")
 
         plans.append(dict(csv=csv_path, stem=stem, session=session,
                           windows=windows, note=note, title=title))
