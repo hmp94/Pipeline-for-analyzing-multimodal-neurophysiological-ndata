@@ -33,9 +33,33 @@ earlier analysis had to work around:
   possible; with Brain-Life the only honest option was exclusion.
 * **512 Hz, referential** — against 244 Hz bipolar.
 
-Note `Oz`, `Fp1` and `Fp2` return an identical relative-alpha of ≈0.212 for both
-subjects in both conditions, which is what a flat or unconnected channel looks like.
-Treat O1, O2, F3, F4 as the live ones until that is checked.
+## Only 8 of the 25 scalp channels carry real data
+
+Checked by correlating every scalp channel against every other over a 120 s window
+and collapsing anything above r = 0.99. The 25 scalp channels reduce to ~13 distinct
+signals, and most of those are one signal appearing on many electrodes at 300–1300 µV
+— far too large for EEG, and identical across electrodes, which is a floating or
+shorted reference rather than brain activity:
+
+| | shared-signal groups (NOT usable) | independent, plausible amplitude |
+|---|---|---|
+| ban | Fp2·F7·Fz·C3·P3·Oz·T5, F8·C4·Cz·Pz, Fp1·Fpz, P4·T6, **E1·E2** | F3 F4 T3 T4 O1 O2 A1 A2 (33–223 µV) |
+| minhanh | Fp2·Fpz·F7·F8·Fz·C3·Oz·T5, C4·Cz·P4·Pz·T6, Fp1·P3, **E1·E2** | F3 F4 T3 T4 O1 O2 A1 A2 (44–184 µV) |
+
+**The usable montage is the same eight electrodes in both recordings: F3, F4, T3, T4,
+O1, O2, A1, A2.** Same set for both subjects, so this is a hardware or montage
+problem, not something about either participant. It is still a workable reduced
+montage — bilateral frontal, temporal and occipital, plus the A1/A2 ear references.
+
+Two consequences:
+
+* **E1/E2 are in a duplicate pair**, so the EOG is not independently usable and
+  blink *correction* by regression is off the table after all. Exclusion remains the
+  honest option, as with Brain-Life.
+* Earlier numbers quoted for `Oz`, `Fp1` and `Fp2` (relative alpha ≈0.212, ratios
+  1.03× / 0.92×) are meaningless — those channels are in the shared-signal groups.
+  The O1/O2 alpha results below are unaffected, since O1 and O2 are both in the
+  usable set.
 
 ## The timing now closes exactly
 
