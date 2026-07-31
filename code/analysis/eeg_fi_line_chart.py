@@ -18,7 +18,7 @@ from utils import (
     shade_timeline, timeline_legend, robust_sd,
     build_session_windows, generic_task_order, measure_block_durations,
     find_session_for_recording, detect_blinks, spans_to_mask, describe_blinks,
-    display_stem,
+    display_stem, battery_windows_for, parse_task_order_arg,
     N_ROBUST_SD,
 )
 
@@ -294,17 +294,6 @@ def alpha_reactivity(proc, fs, windows):
     return out
 
 
-def _battery_windows(csv_path):
-    """(windows, title_suffix) for a battery recording, paired if possible."""
-    session, note = find_session_for_recording(csv_path, BEHAVIORS_DIR)
-    if session is not None:
-        windows = build_session_windows(
-            session["task_order"], measured=measure_block_durations(session["dir"]))
-        return windows, f"session {session['session']}", note
-    return (build_session_windows(generic_task_order()),
-            "NO PAIRED SESSION, block labels are generic", note)
-
-
 def plot_eeg_traces(stem, edf_path, windows, title, save_path,
                     zoom_at=None, zoom_len=8.0, blink_sd=None):
     """Three panels: each channel across the session, then a legible zoom."""
@@ -538,7 +527,7 @@ def plot_eeg_windows(stem, edf_path, windows, who, graph_dir,
     return pdf_path
 
 
-def run_battery_plots(mode, only=None, graph_dir=None, **kw):
+def run_battery_plots(mode, only=None, graph_dir=None, orders=None, **kw):
     """Trace figures and/or strip charts for the battery recordings in eeg_bl/."""
     graph_dir = graph_dir or BATTERY_GRAPH_DIR
     paths = sorted(glob.glob(os.path.join(EEG_BL_DIR, "*.csv")))
@@ -559,7 +548,9 @@ def run_battery_plots(mode, only=None, graph_dir=None, **kw):
             print("  no EDF — run run_pipeline.py --battery first")
             continue
         print(f"  EDF: {quality}/")
-        windows, who, note = _battery_windows(csv_path)
+        windows, who, note = battery_windows_for(
+            csv_path, BEHAVIORS_DIR, order=(orders or {}).get(display_stem(stem))
+                                          or (orders or {}).get(stem))
         print(f"  pairing: {note}")
 
         if mode in ("traces", "both"):
@@ -596,6 +587,10 @@ def _parse_args():
     p.add_argument("--windows", action="store_true",
                    help="paginated strip chart per battery recording")
     p.add_argument("--only", default=None, help="substring filter on the filename")
+    p.add_argument("--order", action="append", default=[], metavar="REC=T1,T2,...",
+                   help="block order for a recording with no session folder, e.g. "
+                        "--order minhanh='Addition,Stroop A,CPT-X,Fairy Tale,"
+                        "Passive Video,Multiplication'; repeatable")
     p.add_argument("--blink-sd", type=float, default=None, dest="blink_sd",
                    help=f"blink threshold in robust SDs (default {N_ROBUST_SD}); "
                         f"lower is more sensitive")
@@ -616,7 +611,16 @@ if __name__ == '__main__':
     if args.traces or args.windows:
         mode = "both" if (args.traces and args.windows) else (
             "traces" if args.traces else "windows")
-        run_battery_plots(mode, only=args.only, blink_sd=args.blink_sd,
+        orders = {}
+        for item in args.order:
+            if "=" not in item:
+                raise SystemExit(f"--order needs REC=T1,T2,..., got {item!r}")
+            k, v = item.split("=", 1)
+            try:
+                orders[k.strip()] = parse_task_order_arg(v)
+            except ValueError as exc:
+                raise SystemExit(f"--order {k.strip()}: {exc}")
+        run_battery_plots(mode, only=args.only, orders=orders, blink_sd=args.blink_sd,
                           win=args.win, strips=args.strips, scale=args.scale,
                           t_from=args.t_from, t_to=args.t_to,
                           png_page=args.png_page, zoom_at=args.zoom_at,

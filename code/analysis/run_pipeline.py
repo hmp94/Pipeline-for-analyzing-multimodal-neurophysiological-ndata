@@ -60,6 +60,7 @@ from utils import (
     load_session, measure_block_durations, build_session_windows,
     generic_task_order, find_session_for_recording, session_duration,
     describe_windows, verify_against_experiment_settings,
+    battery_windows_for, parse_task_order_arg,
 )
 
 import argparse
@@ -577,6 +578,9 @@ def _parse_args():
     p.add_argument("--offset", action="append", default=[], metavar="CSV=SECONDS",
                    help="--battery: extra timeline shift for a recording that did not "
                         "start at the SPACE press; repeatable")
+    p.add_argument("--order", action="append", default=[], metavar="REC=T1,T2,...",
+                   help="--battery: block order for a recording with no session "
+                        "folder; repeatable")
     p.add_argument("--offset-all", type=float, default=0.0, metavar="SECONDS",
                    help="--battery: apply an extra shift to every recording")
     p.add_argument("--eeg-fs",       type=int, default=EEG_FS,  help=f"EEG sampling rate (default {EEG_FS})")
@@ -594,6 +598,20 @@ def _parse_args():
     if not args.battery and (args.csv_input is None or args.edf_output is None):
         p.error("csv_input and edf_output are required unless --battery is given")
     return args
+
+
+def _parse_orders(items):
+    """REC=T1,T2,… pairs -> {rec: full order}. Exits cleanly on a bad label."""
+    out = {}
+    for item in items:
+        if "=" not in item:
+            raise SystemExit(f"--order needs REC=T1,T2,..., got {item!r}")
+        k, v = item.split("=", 1)
+        try:
+            out[k.strip()] = parse_task_order_arg(v)
+        except ValueError as exc:
+            raise SystemExit(f"--order {k.strip()}: {exc}")
+    return out
 
 
 def _kv(items, cast, flag):
@@ -632,7 +650,8 @@ def _recording_seconds(csv_path, eeg_fs=EEG_FS):
         return None
 
 
-def resolve_pairings(csv_paths, explicit=None, offsets=None, default_offset=0.0):
+def resolve_pairings(csv_paths, explicit=None, offsets=None, default_offset=0.0,
+                     orders=None):
     """Attach a session (or None) to every recording, with its timeline."""
     explicit, offsets = explicit or {}, offsets or {}
     plans = []
@@ -652,16 +671,23 @@ def resolve_pairings(csv_paths, explicit=None, offsets=None, default_offset=0.0)
 
         t0 = float(offsets.get(base, offsets.get(stem, default_offset)))
         shift = f"   [t0 {t0:+.1f}s]" if t0 else ""
-        if session is not None:
-            windows = build_session_windows(
-                session["task_order"],
-                measured=measure_block_durations(session["dir"]), t0=t0)
-            title = (f"{display_stem(stem)}   —   session {session['session']}"
-                     f"   (block order below is from metadata.json){shift}")
-        else:
+        order = (orders or {}).get(display_stem(stem)) or (orders or {}).get(stem)
+
+        if forced and session is None:
             windows = build_session_windows(generic_task_order(), t0=t0)
-            title = (f"{display_stem(stem)}   —   NO PAIRED SESSION, "
-                     f"block labels are generic{shift}")
+            title = f"{display_stem(stem)}   —   {note}{shift}"
+        else:
+            windows, who, note2 = battery_windows_for(
+                csv_path, BEHAVIORS_DIR, order=order, t0=t0)
+            if session is not None and not order:
+                windows = build_session_windows(
+                    session["task_order"],
+                    measured=measure_block_durations(session["dir"]), t0=t0)
+                title = (f"{display_stem(stem)}   —   session {session['session']}"
+                         f"   (block order below is from metadata.json){shift}")
+            else:
+                note = note2
+                title = f"{display_stem(stem)}   —   {who}{shift}"
 
         plans.append(dict(csv=csv_path, stem=stem, session=session,
                           windows=windows, note=note, title=title))
@@ -689,7 +715,7 @@ def report_pairings(plans):
 
 
 def run_battery(only=None, explicit=None, offsets=None, default_offset=0.0,
-                dry_run=False, edf_dir=None, graph_dir=None):
+                dry_run=False, edf_dir=None, graph_dir=None, orders=None):
     """Run the full pipeline over code/results/eeg_bl/ with metadata timelines."""
     edf_dir = edf_dir or BATTERY_EDF_DIR
     graph_dir = graph_dir or BATTERY_GRAPH_DIR
@@ -708,7 +734,7 @@ def run_battery(only=None, explicit=None, offsets=None, default_offset=0.0,
         for d in drift:
             print(f"  - {d}")
 
-    plans = resolve_pairings(csv_paths, explicit, offsets, default_offset)
+    plans = resolve_pairings(csv_paths, explicit, offsets, default_offset, orders)
     report_pairings(plans)
 
     unpaired = [p["stem"] for p in plans if p["session"] is None]
@@ -748,6 +774,7 @@ if __name__ == "__main__":
             offsets=_kv(args.offset, float, "--offset"),
             default_offset=args.offset_all,
             dry_run=args.dry_run,
+            orders=_parse_orders(args.order),
             edf_dir=args.edf_output or None,
             graph_dir=args.summary_save
             if args.summary_save != GRAPH_SUMMARY_DIR else None,

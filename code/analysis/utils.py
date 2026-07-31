@@ -580,9 +580,69 @@ def timeline_for_session(session_dir, use_measured=True, **kw):
     return build_session_windows(sess["task_order"], measured=measured, **kw), sess
 
 
+#: The six task labels run_all_experiments can emit, for validating a hand-supplied
+#: order. Must match the TASK_LABEL of each module in code/experiment/.
+TASK_LABELS = ("Addition", "Multiplication", "Stroop A", "CPT-X",
+               "Passive Video", "Fairy Tale")
+
+
 def generic_task_order(n_tasks=6):
     """Fallback order when no behavioural session can be paired with a recording."""
     return [BASELINE_LABEL] + [f"Task {i}" for i in range(1, n_tasks + 1)]
+
+
+def parse_task_order_arg(text):
+    """Parse a hand-supplied block order, e.g. 'Addition,Stroop A,CPT-X,…'.
+
+    For a recording whose session folder was never transferred, the order is not
+    recoverable from anything in the repo — run_all_experiments randomises it and
+    writes it only to metadata.json, and it cannot be read back out of the EEG. This
+    lets an operator who knows the order supply it rather than analysing six
+    anonymous blocks. Returns the full order with the baseline prepended.
+
+    Raises ValueError on an unknown or duplicated label, because silently accepting
+    a typo would mislabel every block in the figure.
+    """
+    labels = [t.strip() for t in text.split(",") if t.strip()]
+    labels = [l for l in labels if l.lower() != BASELINE_LABEL.lower()]
+    known = {l.lower(): l for l in TASK_LABELS}
+    out = []
+    for l in labels:
+        if l.lower() not in known:
+            raise ValueError(
+                f"unknown task label {l!r}; expected some of {', '.join(TASK_LABELS)}")
+        canon = known[l.lower()]
+        if canon in out:
+            raise ValueError(f"task {canon!r} listed twice")
+        out.append(canon)
+    if not out:
+        raise ValueError("no task labels given")
+    return [BASELINE_LABEL] + out
+
+
+def battery_windows_for(csv_path, behaviors_dir, order=None, t0=0.0):
+    """(windows, who, note) for one battery recording.
+
+    Resolution order: a hand-supplied `order`, then the paired session's
+    metadata.json, then generic Task 1..6 labels. Never guesses a pairing.
+    """
+    if order:
+        return (build_session_windows(order, t0=t0),
+                "block order supplied by hand (--order)",
+                "order given on the command line; no session lookup performed")
+
+    session, note = find_session_for_recording(csv_path, behaviors_dir)
+    if session is not None:
+        windows = build_session_windows(
+            session["task_order"],
+            measured=measure_block_durations(session["dir"]), t0=t0)
+        return windows, f"session {session['session']}", note
+
+    return (build_session_windows(generic_task_order(), t0=t0),
+            "TASK ORDER UNKNOWN — no metadata.json for this recording",
+            note + "; the order is randomised per session and stored only in "
+                   "metadata.json, so it cannot be recovered from the EEG. Copy the "
+                   "session folder into code/results/behaviors/, or pass --order.")
 
 
 def session_duration(windows):
