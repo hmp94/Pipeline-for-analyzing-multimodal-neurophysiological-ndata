@@ -586,6 +586,8 @@ def _parse_args():
                    help="processed-EEG trace figure per battery recording")
     p.add_argument("--windows", action="store_true",
                    help="paginated strip chart per battery recording")
+    p.add_argument("--blinks", action="store_true",
+                   help="check the baseline's five guided blink cues against the EEG")
     p.add_argument("--only", default=None, help="substring filter on the filename")
     p.add_argument("--order", action="append", default=[], metavar="REC=T1,T2,...",
                    help="block order for a recording with no session folder, e.g. "
@@ -606,9 +608,159 @@ def _parse_args():
     return p.parse_args()
 
 
+
+
+# ==============================================================================
+# Baseline blink-cue check
+# ==============================================================================
+# The baseline's blink phase asks for five guided blinks and logs each cue time in
+# the session's task.csv. That makes it the only part of the protocol with ground
+# truth: known events at known times. If they are not visible in the EEG, either
+# the electrodes were not recording the participant or the timeline is misaligned —
+# so this doubles as an acquisition check and an alignment check.
+
+def find_blink_cues(session_dir):
+    """The five logged blink cue times, in seconds from baseline start."""
+    path = os.path.join(session_dir, "task.csv")
+    out = {}
+    with open(path, newline="", encoding="utf-8") as f:
+        import csv as _csv
+        for r in _csv.DictReader(f):
+            if r.get("task_type") == "Baseline" and (r.get("event") or "").startswith("blink_"):
+                out[r["event"]] = float(r["time_ms"]) / 1000.0
+    return [out[k] for k in sorted(out, key=lambda s: int(s.split("_")[1]))]
+
+
+def locate_blinks(x, fs, cue_times, search=(0.0, 30.0), respond_s=2.0):
+    """Best recording→baseline offset, and each cue's response, by scanning.
+
+    Scores an offset by the peak 0.5–5 Hz envelope in the `respond_s` window after
+    each cue — blink_N marks the START of a 1.4 s "Chớp mắt" prompt, so the blink
+    itself lands a beat later. Compared against the same score computed at offsets
+    all over the recording, which is the null: a real train scores far above it.
+    """
+    from scipy.signal import butter as _butter, sosfiltfilt as _sos
+    env = np.abs(_sos(_butter(3, [0.5, 5.0], btype="band", fs=fs, output="sos"),
+                      np.nan_to_num(x)))
+
+    def score(off):
+        s = 0.0
+        for c in cue_times:
+            a, b = int((off + c) * fs), int((off + c + respond_s) * fs)
+            if b < len(env):
+                s += env[a:b].max()
+        return s
+
+    grid = np.arange(search[0], search[1], 0.05)
+    best = max(grid, key=score)
+    null = float(np.median([score(o) for o in np.arange(200, len(x) / fs - 200, 7.0)]))
+
+    events = []
+    for c in cue_times:
+        a, b = int((best + c) * fs), int((best + c + respond_s) * fs)
+        seg = x[a:b]
+        k = int(np.argmax(np.abs(seg - np.median(seg))))
+        events.append(dict(cue=best + c, found=(a + k) / fs, lag=k / fs,
+                           p2p=float(np.ptp(seg))))
+    return best, score(best) / null if null else float("nan"), events
+
+
+def plot_blink_check(stem, edf_path, session_dir, save_path, pad_s=12.0):
+    """Zoom on the baseline blink phase with the five logged cues marked."""
+    sig, fs = read_edf(edf_path)
+    proc = {ch: sig[f"{ch}_processed"] for ch in ("AF3", "AF4")}
+    cue_times = find_blink_cues(session_dir)
+    if len(cue_times) < 2:
+        print("  no blink cues logged — skipping")
+        return None
+
+    x = np.mean([proc["AF3"], proc["AF4"]], axis=0)
+    off, ratio, events = locate_blinks(x, fs, cue_times)
+
+    t0 = events[0]["cue"] - pad_s
+    t1 = events[-1]["cue"] + pad_s
+    # Quiet eyes-open stretch, as the reference these are measured against.
+    floor = float(np.median([np.ptp(x[int(t * fs):int((t + 3) * fs)])
+                            for t in np.arange(off + 20, off + 65, 3)]))
+    ok = all(e["p2p"] > 2.5 * floor for e in events)
+
+    fig, axes = plt.subplots(2, 1, figsize=(17, 7), sharex=True)
+    fig.suptitle(f"{display_stem(stem)} — baseline blink cues: are the five guided "
+                 f"blinks in the EEG?", fontsize=11, fontweight="bold")
+    fig.text(0.5, 0.925,
+             f"{sum(e['p2p'] > 2.5 * floor for e in events)}/{len(events)} visible above "
+             f"2.5x the eyes-open floor ({floor:,.0f} µV)   ·   cue train scores "
+             f"{ratio:.1f}x chance   ·   recording→baseline offset {off:.2f} s",
+             ha="center", fontsize=9.5, fontweight="bold",
+             color="#14532d" if ok else "#7f1d1d")
+
+    for ax, ch in zip(axes, ("AF3", "AF4")):
+        a, b = int(t0 * fs), int(t1 * fs)
+        t = np.arange(a, b) / fs
+        ax.plot(t, proc[ch][a:b], lw=0.8, color=CH_COLORS[ch], zorder=3)
+        for i, e in enumerate(events, 1):
+            ax.axvspan(e["cue"], e["cue"] + 1.4, color="#eda100", alpha=0.28,
+                       lw=0, zorder=1)          # the 1.4 s "Chớp mắt" prompt
+            ax.axvline(e["found"], color=ARTIFACT, lw=1.0, ls="--", alpha=0.85, zorder=4)
+            if ch == "AF3":
+                ax.annotate(f"blink {i}\n{e['p2p']:,.0f} µV\n{e['p2p'] / floor:.0f}× floor",
+                            xy=(e["cue"] + 0.7, 0.97), xycoords=("data", "axes fraction"),
+                            ha="center", va="top", fontsize=7.5, color="#0b0b0b")
+        ax.set_ylabel(f"{ch}_processed  (µV)", fontsize=8.5, color=INK)
+        ax.grid(True, axis="y", alpha=0.18, lw=0.6)
+        ax.tick_params(labelsize=7.5, colors=INK)
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        # Robust limits: two of ban's cues carry mV-scale movement on top, which
+        # would flatten everything else if the axis chased them.
+        lim = 6 * robust_sd(x[int(t0 * fs):int(t1 * fs)])
+        ax.set_ylim(-lim, lim)
+
+    axes[-1].set_xlim(t0, t1)
+    axes[-1].set_xlabel("Recording time (s)", fontsize=9, color=INK)
+    fig.legend(handles=[
+        mpatches.Patch(facecolor="#eda100", alpha=0.4, label="1.4 s “Chớp mắt” cue (logged in task.csv)"),
+        mpatches.Patch(facecolor=ARTIFACT, label="largest deflection in the 2 s after the cue"),
+    ], loc="lower center", ncol=2, fontsize=8.5, frameon=False, bbox_to_anchor=(0.5, 0.005))
+    fig.tight_layout(rect=(0, 0.05, 1, 0.90))
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved -> {save_path}")
+    return dict(stem=stem, offset=off, ratio=ratio, floor=floor, events=events, ok=ok)
+
+
+def run_blink_check(only=None, graph_dir=None):
+    graph_dir = graph_dir or BATTERY_GRAPH_DIR
+    paths = sorted(glob.glob(os.path.join(EEG_BL_DIR, "*.csv")))
+    if only:
+        paths = [p for p in paths if only in os.path.basename(p)]
+    all_stems = [os.path.splitext(os.path.basename(p))[0] for p in paths]
+    rows = []
+    for csv_path in paths:
+        stem = os.path.splitext(os.path.basename(csv_path))[0]
+        edf_path, _ = find_battery_edf(stem)
+        session, note = find_session_for_recording(csv_path, BEHAVIORS_DIR)
+        print(f"\n{stem}")
+        if edf_path is None or session is None:
+            print(f"  skipped — {'no EDF' if edf_path is None else note}")
+            continue
+        r = plot_blink_check(
+            stem, edf_path, session["dir"],
+            os.path.join(graph_dir, display_stem(stem, all_stems) + "_blinkcheck.png"))
+        if r:
+            rows.append(r)
+            for i, e in enumerate(r["events"], 1):
+                print(f"    blink {i}: {e['p2p']:8,.0f} µV  "
+                      f"{e['p2p'] / r['floor']:6.1f}x floor  lag {e['lag']:.2f}s")
+    return rows
+
+
 if __name__ == '__main__':
     args = _parse_args()
-    if args.traces or args.windows:
+    if args.blinks:
+        run_blink_check(only=args.only)
+    elif args.traces or args.windows:
         mode = "both" if (args.traces and args.windows) else (
             "traces" if args.traces else "windows")
         orders = {}
