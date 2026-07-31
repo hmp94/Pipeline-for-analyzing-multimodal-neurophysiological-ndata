@@ -1,0 +1,25 @@
+{
+  "_comment": [
+    "Maps the informal subject name in an EEG filename to the participant ID used by",
+    "the PsychoPy session. The recordings are named by nickname (ban, minhanh) while",
+    "sessions are keyed by student ID, and nothing in either file links them - which",
+    "is why pairing otherwise falls back to wall-clock containment.",
+    "",
+    "A value may be a full ID or just a trailing fragment; a fragment matches any",
+    "participant whose ID ends with it. Recorded here rather than inferred, because a",
+    "wrong pairing mislabels every block in a figure.",
+    "",
+    "ban = 111240033 is independently corroborated: the five blink cues logged in that",
+    "session's task.csv match deflections in ban's EEG at z = +7.19.",
+    "",
+    "minhanh = ...005 was given by the operator. That session folder has never been in",
+    "this repo, so the mapping cannot be checked yet and the block order for that",
+    "recording is still unknown - the order is randomised per session and stored only",
+    "in the session's metadata.json. Copy the folder into behaviors/ and the pairing",
+    "will resolve by ID, or pass --order to label the blocks by hand."
+  ],
+  "subjects": {
+    "ban": "111240033",
+    "minhanh": "005"
+  }
+}

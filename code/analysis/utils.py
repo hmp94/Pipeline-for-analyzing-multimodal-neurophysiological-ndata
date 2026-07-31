@@ -685,17 +685,35 @@ def parse_recording_start(csv_path, year=None, month=None):
         return m.group("subject"), None
 
 
+def load_subject_map(behaviors_dir):
+    """{subject nickname: participant ID or trailing fragment} from subjects.json.
+
+    Recordings are named by nickname and sessions by student ID, with nothing in
+    either file linking them. That file records the mapping an operator knows, so
+    pairing does not have to rely on wall-clock proximity. Missing file → {}.
+    """
+    path = os.path.join(os.path.dirname(behaviors_dir.rstrip(os.sep)), "subjects.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {k.lower(): str(v) for k, v in (json.load(f).get("subjects") or {}).items()}
+    except (OSError, ValueError):
+        return {}
+
+
 def find_session_for_recording(csv_path, behaviors_dir, tolerance_min=5.0):
-    """Best-effort pairing of an EEG recording with a behavioural session.
+    """Pair an EEG recording with its behavioural session.
 
-    The two are keyed differently — recordings by informal subject nickname,
-    sessions by student ID — so the only available link is wall-clock time. A
-    session matches when the recording's start falls inside
-    [session start − tolerance, session end + tolerance]; session end is taken
-    from metadata's saved_at, else estimated from the nominal timeline.
+    Two routes, in order:
 
-    Returns (session_dict, reason). session_dict is None when nothing matches,
-    with `reason` explaining why — never guess a pairing silently.
+    1. The subject map (code/results/subjects.json). Recordings are named by
+       nickname and sessions by student ID, so an operator-recorded mapping is the
+       only *reliable* link. A mapped value may be a full ID or a trailing fragment.
+    2. Wall-clock containment, when no mapping exists: the recording's start falls
+       inside [session start − tolerance, session end + tolerance].
+
+    Returns (session_dict, reason). session_dict is None when nothing matches, with
+    `reason` explaining why — a pairing is never guessed silently, because a wrong
+    one mislabels every block in the resulting figure.
     """
     sessions = []
     for d in sorted(glob.glob(os.path.join(behaviors_dir, "*"))):
@@ -708,6 +726,28 @@ def find_session_for_recording(csv_path, behaviors_dir, tolerance_min=5.0):
     if not sessions:
         return None, f"no behavioural sessions found in {behaviors_dir}"
 
+    # Route 1 — the operator-recorded subject map. Authoritative when present.
+    subject_name = parse_recording_start(csv_path)[0].lower()
+    mapped = load_subject_map(behaviors_dir).get(subject_name)
+    if mapped:
+        by_id = [s for s in sessions if str(s.get("participant") or "") == mapped]
+        if not by_id:      # a fragment such as "005" matches any ID ending with it
+            by_id = [s for s in sessions
+                     if str(s.get("participant") or "").endswith(mapped)]
+        if len(by_id) == 1:
+            sess = by_id[0]
+            return sess, (f"matched {sess['session']} by subjects.json "
+                          f"({subject_name} = participant {sess['participant']})")
+        if len(by_id) > 1:
+            names = ", ".join(s["session"] for s in by_id)
+            return None, (f"subjects.json maps {subject_name} to {mapped!r}, which "
+                          f"matches several sessions: {names} — use a full ID")
+        return None, (f"subjects.json maps {subject_name} to participant {mapped!r}, "
+                      f"but no session with that ID is in {behaviors_dir}. That "
+                      f"session folder has not been copied over yet, and the block "
+                      f"order lives only in its metadata.json")
+
+    # Route 2 — wall-clock containment.
     matches = []
     for sess in sessions:
         started = sess["started_at"]
