@@ -23,6 +23,13 @@ code/fnirs_plots/
 # Derived intermediates (EDF exports etc.) — regenerate with the pipeline
 data/derived/
 
+# Natus clinical EDFs. 103 channels at 512 Hz runs 85-172 MB per recording, and
+# GitHub hard-rejects any file over 100 MB, so these cannot live in the repo even
+# if we wanted them to. Keep them locally (or in Drive) and record provenance in
+# code/results/eeg_natus/README.md instead.
+code/results/eeg_natus/*.edf
+code/results/eeg_natus/*.zip
+
 # Backup copies
 code/*2.py
 code/*\ 2.py
