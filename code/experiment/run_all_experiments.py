@@ -15,8 +15,11 @@ Shows ONE demographics dialog, opens ONE window, then runs:
       -> rest (60 s) -> instructions (auto) -> 3 s countdown -> task 2 ...
       -> rest (60 s) -> instructions (auto) -> 3 s countdown -> task 3 ...
 
-The six cognitive tasks (Passive Video, Fairy Tale, Addition, CPT-X,
-Multiplication, Stroop) run in a RANDOMIZED order; each lasts ~180 s. There is
+Right after the demographics dialog, the experimenter picks the order of the six
+cognitive tasks (Passive Video, Fairy Tale, Addition, CPT-X, Multiplication,
+Stroop) on a number-key screen: press 1-6 to queue tasks manually, BACKSPACE to
+undo the last pick, or ENTER to randomize whatever hasn't been picked yet (ENTER
+with nothing picked = fully randomized). Each task lasts ~180 s. There is
 NO rest before the first task (the baseline flows straight into the first task's
 instructions), and NO rest after the last.
 
@@ -29,7 +32,7 @@ Because every task shares the one window, the screen never flashes between
 tasks — useful when EEG/fNIRS/PPG are recording continuously.
 
 Output — one folder per session:
-  results/behaviors/<participant>_<timestamp>/
+  results/<participant>_<timestamp>/
     metadata.json   demographics + session info (order, completion, scores)
     task.csv        every task's trials in one table, keyed by the task_type column
                     (the baseline logs baseline_start/baseline_end marker rows)
@@ -67,7 +70,7 @@ REST_S = cfg.SESSION["rest_s"]                        # rest between tasks, 1 mi
 WELCOME_S = cfg.SESSION["welcome_s"]                  # baseline-intro screen duration
 FINAL_S = cfg.SESSION["final_s"]                      # final summary screen (SPACE closes early)
 
-# The six tasks. Order is randomized per session.
+# The six tasks. Index i maps to key "i+1" on the order-selection screen.
 TASKS = [passive_video, fairy_tale, addition, cpt_x, multiplication, stroop]
 
 # Each task module defines its own AbortBlock class; collect them so the runner
@@ -164,6 +167,93 @@ def wait_for_start(win, kb, lines):
                 raise AbortSession
             if k.name == "space":
                 return
+
+
+def select_task_order(win, kb):
+    """Experimenter-facing screen: pick the run order of the six tasks.
+
+    Shows one box per task in TASKS, each permanently keyed to "1".."6". Number
+    keys queue that task next (each task can only be queued once); BACKSPACE
+    undoes the last pick; ENTER randomizes whatever hasn't been picked yet (with
+    nothing picked, that's a full random order — the old default behaviour).
+    ESC raises AbortSession. Returns the ordered list of task modules.
+    """
+    cols, rows = 3, 2
+    col_w, row_h = 0.5, 0.34
+    positions = []
+    for i in range(len(TASKS)):
+        col = i % cols
+        row = i // cols
+        x = (col - (cols - 1) / 2) * col_w
+        y = ((rows - 1) / 2 - row) * row_h + 0.05
+        positions.append((x, y))
+
+    title = visual.TextStim(win, text="Select task order",
+                            color=(255, 255, 255), colorSpace="rgb255",
+                            height=h(50), pos=(0, 0.42), font="Arial")
+    hint = visual.TextStim(
+        win,
+        text="Press 1-6 to queue tasks manually  |  ENTER to randomize the rest  |  BACKSPACE to undo the last pick",
+        color=(160, 160, 160), colorSpace="rgb255", height=h(30),
+        pos=(0, -0.32), wrapWidth=1.6, alignText="center", font="Arial")
+    order_text = visual.TextStim(win, text="", color=(160, 160, 160),
+                                 colorSpace="rgb255", height=h(30), pos=(0, -0.40),
+                                 wrapWidth=1.6, alignText="center", font="Arial")
+
+    boxes = []
+    for i, module in enumerate(TASKS):
+        rect = visual.Rect(win, width=col_w * 0.85, height=row_h * 0.7, pos=positions[i],
+                           fillColor=(51, 51, 51), lineColor=(255, 255, 255),
+                           colorSpace="rgb255", lineWidth=2, units="height")
+        label = visual.TextStim(win, text=f"[{i + 1}] {module.TASK_LABEL}",
+                                color=(255, 255, 255), colorSpace="rgb255",
+                                height=h(32), pos=positions[i], wrapWidth=col_w * 0.8,
+                                alignText="center", font="Arial")
+        boxes.append({"module": module, "rect": rect, "label": label})
+
+    key_names = [str(n) for n in range(1, len(TASKS) + 1)]
+    chosen = []   # list of task modules, in the order picked
+
+    def refresh_box_colors():
+        for i, box in enumerate(boxes):
+            if box["module"] in chosen:
+                box["rect"].fillColor = (60, 120, 60)
+                box["label"].text = f"[{i + 1}] {box['module'].TASK_LABEL}  ({chosen.index(box['module']) + 1})"
+            else:
+                box["rect"].fillColor = (51, 51, 51)
+                box["label"].text = f"[{i + 1}] {box['module'].TASK_LABEL}"
+
+    refresh_box_colors()
+    kb.clearEvents()
+    while len(chosen) < len(TASKS):
+        title.draw()
+        for box in boxes:
+            box["rect"].draw()
+            box["label"].draw()
+        order_text.text = ("Picked so far: " + " -> ".join(m.TASK_LABEL for m in chosen)) if chosen else "Nothing picked yet"
+        order_text.draw()
+        hint.draw()
+        win.flip()
+
+        for k in kb.getKeys(key_names + ["backspace", "return", "escape"], waitRelease=False):
+            if k.name == "escape":
+                raise AbortSession
+            if k.name == "backspace":
+                if chosen:
+                    chosen.pop()
+                    refresh_box_colors()
+            elif k.name == "return":
+                remaining = [m for m in TASKS if m not in chosen]
+                random.shuffle(remaining)
+                chosen.extend(remaining)
+                refresh_box_colors()
+            elif k.name in key_names:
+                module = TASKS[int(k.name) - 1]
+                if module not in chosen:
+                    chosen.append(module)
+                    refresh_box_colors()
+
+    return chosen
 
 
 _beep_snd = None   # cached PsychoPy Sound (preloaded so the cue has no init delay)
@@ -327,17 +417,13 @@ def main():
         core.quit()
     participant, demographics = session
 
-    order = TASKS[:]
-    random.shuffle(order)
-    task_labels = [m.TASK_LABEL for m in order]
-    order_labels = ["Baseline"] + task_labels
-    print(f"Session order: {' -> '.join(order_labels)}")
-
-    # One folder per session: results/behaviors/<participant>_<timestamp>/{metadata.json, task.csv}
+    # One folder per session: results/<participant>_<timestamp>/{metadata.json, task.csv}
     session_id, session_dir = expio.make_session_dir(participant)
     all_rows = []           # every task's trials/events, combined; keyed by task_type
     summaries = []          # (label, summary string) per completed task
     completed_labels = []
+    order_labels = ["Baseline"]   # replaced once select_task_order() returns; kept
+                                  # here so save() is always safe if aborted early
     aborted = False
 
     def save():
@@ -351,6 +437,11 @@ def main():
     kb = keyboard.Keyboard()
 
     try:
+        order = select_task_order(win, kb)
+        task_labels = [m.TASK_LABEL for m in order]
+        order_labels = ["Baseline"] + task_labels
+        print(f"Session order: {' -> '.join(order_labels)}")
+
         wait_for_start(win, kb, content.WELCOME)   # ONE SPACE press starts the whole session
 
         # F0 resting baseline — first, no rest before it.
